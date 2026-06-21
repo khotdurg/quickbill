@@ -173,6 +173,7 @@ td{padding:11px 8px;border-bottom:1px solid var(--cream-100);font-size:13.5px;ve
     <button class="tab-btn active" data-view="dashboard">Dashboard</button>
     <button class="tab-btn" data-view="customers">Customers</button>
     <button class="tab-btn" data-view="invoice">Generate Bill</button>
+    <button class="tab-btn" data-view="reports">Reports</button>
     <button class="tab-btn" data-view="sync">Cloud Sync</button>
   </div>
 </div>
@@ -246,6 +247,48 @@ td{padding:11px 8px;border-bottom:1px solid var(--cream-100);font-size:13.5px;ve
     <div id="invoice"></div>
   </div>
 
+  <!-- CUSTOMER LEDGER / DETAIL -->
+  <div class="view" id="view-detail">
+    <div class="page-title">
+      <div><h2 id="detailName">Customer</h2><div class="sub" id="detailSub"></div></div>
+      <button class="btn btn-outline btn-sm" onclick="switchView('customers')">← Back</button>
+    </div>
+
+    <div class="grid-stats">
+      <div class="stat-card gold"><div class="label">Total Billed</div><div class="value mono" id="detTotalBilled">₹0</div></div>
+      <div class="stat-card green"><div class="label">Total Paid</div><div class="value mono" id="detTotalPaid">₹0</div></div>
+      <div class="stat-card crimson"><div class="label">Balance Due</div><div class="value mono" id="detBalance">₹0</div></div>
+      <div class="stat-card"><div class="label">Installed On</div><div class="value" id="detInstalled" style="font-size:16px;"></div></div>
+    </div>
+
+    <div class="panel">
+      <h3>Year-wise Maintenance Ledger</h3>
+      <div id="detailLedger"></div>
+    </div>
+
+    <div class="panel">
+      <h3>All Payments Received</h3>
+      <div id="detailPayments"></div>
+    </div>
+
+    <button class="btn btn-gold btn-full" onclick="openPaymentModal()">+ Record a Payment</button>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="view" id="view-reports">
+    <div class="page-title"><div><h2>Reports</h2><div class="sub">Overall business summary</div></div></div>
+    <div class="grid-stats">
+      <div class="stat-card gold"><div class="label">Total Customers</div><div class="value" id="repCustomers">0</div></div>
+      <div class="stat-card green"><div class="label">Total Collected (All Time)</div><div class="value mono" id="repCollected">₹0</div></div>
+      <div class="stat-card crimson"><div class="label">Total Outstanding</div><div class="value mono" id="repOutstanding">₹0</div></div>
+      <div class="stat-card"><div class="label">This FY Collected</div><div class="value mono" id="repThisFY">₹0</div></div>
+    </div>
+    <div class="panel">
+      <h3>Outstanding Balances — All Customers</h3>
+      <div id="repList"></div>
+    </div>
+  </div>
+
   <!-- CLOUD SYNC -->
   <div class="view" id="view-sync">
     <div class="page-title"><div><h2>Cloud Sync</h2><div class="sub">Your data, stored in your Google Drive</div></div></div>
@@ -293,6 +336,24 @@ td{padding:11px 8px;border-bottom:1px solid var(--cream-100);font-size:13.5px;ve
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeCustomerModal()">Cancel</button>
       <button class="btn btn-gold" onclick="saveCustomer()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div class="overlay" id="paymentOverlay">
+  <div class="modal">
+    <h3>Record a Payment</h3>
+    <input type="hidden" id="payCustId">
+    <div class="form-grid">
+      <div class="field"><label>Financial Year</label><select id="payFY"></select></div>
+      <div class="field"><label>Amount Received (₹)</label><input type="number" id="payAmount" placeholder="e.g. 5000"></div>
+      <div class="field"><label>Payment Date</label><input type="date" id="payDate"></div>
+      <div class="field"><label>Note (optional)</label><input id="payNote" placeholder="e.g. Cash / UPI / part payment"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closePaymentModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="savePayment()">Save Payment</button>
     </div>
   </div>
 </div>
@@ -467,8 +528,35 @@ function fyOf(dateStr){ const d=new Date(dateStr); const y=d.getFullYear(); retu
 function currentFY(){ return fyOf(new Date().toISOString()); }
 function fyList(back=3,fwd=1){ const now=new Date(); let sy=now.getMonth()>=3?now.getFullYear():now.getFullYear()-1; const l=[]; for(let i=back;i>=-fwd;i--){const y=sy-i; l.push(`${y}-${(y+1).toString().slice(2)}`);} return l; }
 function maintenanceDueDate(purchaseDateStr, fy){ const sy=parseInt(fy.split('-')[0]); return `${sy}-04-01`; }
-function isPaid(cid,fy){ return DB.payments.some(p=>p.customerId===cid&&p.fy===fy&&p.status==='paid'); }
-function paymentRecord(cid,fy){ return DB.payments.find(p=>p.customerId===cid&&p.fy===fy); }
+
+// payments are now individual entries: {id, customerId, fy, amount, date, note}
+// a single FY can have multiple entries (partial payments over time)
+function paymentsForFY(cid, fy){ return DB.payments.filter(p=>p.customerId===cid && p.fy===fy); }
+function totalPaidForFY(cid, fy){ return paymentsForFY(cid,fy).reduce((s,p)=>s+Number(p.amount||0),0); }
+function allPaymentsForCustomer(cid){ return DB.payments.filter(p=>p.customerId===cid).sort((a,b)=> new Date(b.date)-new Date(a.date)); }
+function fyStatus(c, fy){
+  const paid = totalPaidForFY(c.id, fy);
+  const fee = Number(c.fee)||0;
+  const due = maintenanceDueDate(c.purchaseDate, fy);
+  const today = new Date().toISOString().slice(0,10);
+  if(paid >= fee && fee>0) return {status:'Paid', cls:'ok', paid, fee, balance: Math.max(fee-paid,0)};
+  if(paid > 0) return {status:'Partial', cls:'due', paid, fee, balance: fee-paid};
+  if(today > due) return {status:'Overdue', cls:'overdue', paid, fee, balance: fee-paid};
+  return {status:'Due', cls:'due', paid, fee, balance: fee-paid};
+}
+function fyRangeForCustomer(c){
+  // from the FY of purchase date up to current FY (inclusive)
+  if(!c.purchaseDate) return [currentFY()];
+  const startFY = fyOf(c.purchaseDate);
+  const startYear = parseInt(startFY.split('-')[0]);
+  const curYear = parseInt(currentFY().split('-')[0]);
+  const list=[];
+  for(let y=startYear; y<=curYear; y++){ list.push(`${y}-${(y+1).toString().slice(2)}`); }
+  return list;
+}
+// legacy helpers kept for compatibility with invoice rendering
+function isPaid(cid,fy){ return fyStatus(DB.customers.find(c=>c.id===cid)||{fee:0}, fy).status==='Paid'; }
+function paymentRecord(cid,fy){ const entries=paymentsForFY(cid,fy); if(!entries.length) return null; const last=entries[entries.length-1]; return {status: totalPaidForFY(cid,fy)>0?'paid':'due', amount: totalPaidForFY(cid,fy), date:last.date}; }
 
 /* ===================== TOAST / NAV ===================== */
 function toast(msg,type='success'){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast '+type,2200); }
@@ -479,6 +567,7 @@ function switchView(name){
   if(name==='dashboard') renderDashboard();
   if(name==='customers') renderCustomers();
   if(name==='invoice') prepInvoiceView();
+  if(name==='reports') renderReports();
 }
 document.querySelectorAll('.tab-btn').forEach(b=> b.addEventListener('click', ()=>switchView(b.dataset.view)));
 
@@ -534,12 +623,13 @@ function renderCustomers(){
   const list=DB.customers.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.software||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)||(c.phone||'').toLowerCase().includes(q));
   document.getElementById('custEmpty').style.display=list.length?'none':'block';
   document.getElementById('custList').innerHTML=list.map(c=>`
-    <div class="cust-card">
+    <div class="cust-card" onclick="openDetail('${c.id}')" style="cursor:pointer;">
       <div class="top"><span class="nm">${esc(c.name)}</span><span class="mono" style="font-size:12px;color:var(--navy-700);font-weight:700;">₹${Number(c.fee).toLocaleString('en-IN')}</span></div>
       <div class="meta">${esc(c.software)} · Purchased ${fmtDate(c.purchaseDate)}<br>${esc(c.phone||'')} ${c.email?' · '+esc(c.email):''}</div>
       <div class="row-actions">
-        <button class="btn btn-outline btn-sm" onclick="openCustomerModal('${c.id}')">Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteCustomer('${c.id}')">Delete</button>
+        <button class="btn btn-gold btn-sm" onclick="event.stopPropagation();openDetail('${c.id}')">Ledger</button>
+        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();openCustomerModal('${c.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteCustomer('${c.id}')">Delete</button>
       </div>
     </div>`).join('');
 }
@@ -550,19 +640,17 @@ function renderDashboard(){
   document.getElementById('fyLabelDash').textContent=fy;
   const q=(document.getElementById('dashSearch').value||'').toLowerCase();
   let paidCount=0, overdueCount=0, revenue=0;
-  const today=new Date().toISOString().slice(0,10);
   const list=DB.customers.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.software||'').toLowerCase().includes(q));
   document.getElementById('dashEmpty').style.display=DB.customers.length?'none':'block';
   document.getElementById('dashList').innerHTML=list.map(c=>{
     const due=maintenanceDueDate(c.purchaseDate,fy);
-    const rec=paymentRecord(c.id,fy);
-    let status='Due',badge='due';
-    if(rec&&rec.status==='paid'){status='Paid';badge='ok';paidCount++;revenue+=Number(rec.amount||c.fee);}
-    else if(today>due){status='Overdue';badge='overdue';overdueCount++;}
-    return `<div class="cust-card">
-      <div class="top"><span class="nm">${esc(c.name)}</span><span class="badge ${badge}">${status}</span></div>
-      <div class="meta">${esc(c.software)} · Due ${fmtDate(due)}</div>
-      <div class="row-actions"><button class="btn btn-outline btn-sm" onclick="goToInvoice('${c.id}','${fy}')">Generate Bill</button></div>
+    const st=fyStatus(c,fy);
+    if(st.status==='Paid'){paidCount++;revenue+=st.paid;}
+    else if(st.status==='Overdue') overdueCount++;
+    return `<div class="cust-card" onclick="openDetail('${c.id}')" style="cursor:pointer;">
+      <div class="top"><span class="nm">${esc(c.name)}</span><span class="badge ${st.cls}">${st.status}${st.status==='Partial'?' ₹'+st.paid.toLocaleString('en-IN'):''}</span></div>
+      <div class="meta">${esc(c.software)} · Due ${fmtDate(due)} · Balance ₹${Math.max(st.balance,0).toLocaleString('en-IN')}</div>
+      <div class="row-actions"><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();goToInvoice('${c.id}','${fy}')">Generate Bill</button><button class="btn btn-gold btn-sm" onclick="event.stopPropagation();openDetail('${c.id}')">View Ledger</button></div>
     </div>`;
   }).join('');
   document.getElementById('statTotal').textContent=DB.customers.length;
@@ -590,7 +678,7 @@ function renderInvoice(){
   if(!c){ target.innerHTML='<p class="muted" style="text-align:center;">Add a customer first.</p>'; return; }
   if(!document.getElementById('invAmount').dataset.touched) document.getElementById('invAmount').value=c.fee;
   const amount=parseFloat(document.getElementById('invAmount').value)||c.fee;
-  const rec=paymentRecord(cid,fy); const paid=rec&&rec.status==='paid';
+  const rec=paymentRecord(cid,fy); const st=fyStatus(c,fy); const paid=st.status==='Paid';
   target.innerHTML=`
     <div class="inv-head">
       <div class="biz"><div class="product">QuickBill</div><div class="company">Opportunities Software</div></div>
@@ -609,10 +697,121 @@ document.getElementById('invAmount').addEventListener('input', e=> e.target.data
 function markInvoicePaid(){
   const cid=document.getElementById('invCustomer').value, fy=document.getElementById('invFY').value, amount=parseFloat(document.getElementById('invAmount').value);
   if(!cid){ toast('Select a customer','error'); return; }
-  const existing=paymentRecord(cid,fy);
-  if(existing){ existing.status='paid'; existing.amount=amount; existing.date=new Date().toISOString().slice(0,10); }
-  else DB.payments.push({customerId:cid,fy,status:'paid',amount,date:new Date().toISOString().slice(0,10)});
+  if(!amount || amount<=0){ toast('Enter a valid amount','error'); return; }
+  DB.payments.push({id:uid(), customerId:cid, fy, amount, date:new Date().toISOString().slice(0,10), note:'Via invoice'});
   saveDB(); renderInvoice(); toast('Invoice marked paid & synced');
+}
+
+/* ===================== CUSTOMER DETAIL / LEDGER ===================== */
+let currentDetailId = null;
+function openDetail(cid){
+  currentDetailId = cid;
+  switchView('detail');
+  renderDetail();
+}
+function renderDetail(){
+  const c = DB.customers.find(x=>x.id===currentDetailId);
+  if(!c){ switchView('customers'); return; }
+  document.getElementById('detailName').textContent = c.name;
+  document.getElementById('detailSub').textContent = `${c.software} · ${c.phone||''} ${c.email?' · '+c.email:''}`;
+  document.getElementById('detInstalled').textContent = fmtDate(c.purchaseDate);
+
+  const fys = fyRangeForCustomer(c);
+  let totalBilled=0, totalPaid=0;
+  const rows = fys.map(fy=>{
+    const st = fyStatus(c, fy);
+    totalBilled += st.fee;
+    totalPaid += st.paid;
+    const due = maintenanceDueDate(c.purchaseDate, fy);
+    return `<tr>
+      <td class="name-cell">${fy}</td>
+      <td>${fmtDate(due)}</td>
+      <td class="mono">₹${st.fee.toLocaleString('en-IN')}</td>
+      <td class="mono">₹${st.paid.toLocaleString('en-IN')}</td>
+      <td class="mono" style="color:${st.balance>0?'var(--crimson-600)':'var(--green-ok)'};font-weight:700;">₹${Math.max(st.balance,0).toLocaleString('en-IN')}</td>
+      <td><span class="badge ${st.cls}">${st.status}</span></td>
+      <td><button class="btn btn-outline btn-sm" onclick="openPaymentModal('${fy}')">+ Pay</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('detailLedger').innerHTML = `
+    <div style="overflow-x:auto;"><table>
+      <thead><tr><th>FY</th><th>Due Date</th><th>Fee</th><th>Paid</th><th>Balance</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+
+  document.getElementById('detTotalBilled').textContent = '₹'+totalBilled.toLocaleString('en-IN');
+  document.getElementById('detTotalPaid').textContent = '₹'+totalPaid.toLocaleString('en-IN');
+  document.getElementById('detBalance').textContent = '₹'+Math.max(totalBilled-totalPaid,0).toLocaleString('en-IN');
+
+  const payments = allPaymentsForCustomer(c.id);
+  document.getElementById('detailPayments').innerHTML = payments.length ? `
+    <table><thead><tr><th>Date</th><th>FY</th><th>Amount</th><th>Note</th><th></th></tr></thead>
+    <tbody>${payments.map(p=>`<tr>
+      <td>${fmtDate(p.date)}</td><td>${p.fy}</td><td class="mono">₹${Number(p.amount).toLocaleString('en-IN')}</td>
+      <td class="muted">${esc(p.note||'-')}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deletePayment('${p.id}')">Delete</button></td>
+    </tr>`).join('')}</tbody></table>` : `<div class="empty-state">No payments recorded yet.</div>`;
+}
+
+function openPaymentModal(presetFY){
+  document.getElementById('payCustId').value = currentDetailId;
+  const c = DB.customers.find(x=>x.id===currentDetailId);
+  const sel = document.getElementById('payFY');
+  sel.innerHTML = fyRangeForCustomer(c).map(fy=>`<option value="${fy}">${fy}</option>`).join('');
+  sel.value = presetFY || currentFY();
+  document.getElementById('payAmount').value = c ? c.fee : '';
+  document.getElementById('payDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('payNote').value = '';
+  document.getElementById('paymentOverlay').classList.add('show');
+}
+function closePaymentModal(){ document.getElementById('paymentOverlay').classList.remove('show'); }
+function savePayment(){
+  const cid = document.getElementById('payCustId').value;
+  const fy = document.getElementById('payFY').value;
+  const amount = parseFloat(document.getElementById('payAmount').value);
+  const date = document.getElementById('payDate').value;
+  const note = document.getElementById('payNote').value.trim();
+  if(!amount || amount<=0){ toast('Enter a valid amount','error'); return; }
+  DB.payments.push({id:uid(), customerId:cid, fy, amount, date, note});
+  saveDB();
+  closePaymentModal();
+  toast('Payment recorded & synced');
+  renderDetail(); renderDashboard();
+}
+function deletePayment(pid){
+  if(!confirm('Delete this payment record?')) return;
+  DB.payments = DB.payments.filter(p=>p.id!==pid);
+  saveDB(); renderDetail(); renderDashboard();
+  toast('Payment deleted');
+}
+
+/* ===================== REPORTS ===================== */
+function renderReports(){
+  const fy = currentFY();
+  let collected=0, outstanding=0, thisFY=0;
+  const rows = DB.customers.map(c=>{
+    let billed=0, paid=0;
+    fyRangeForCustomer(c).forEach(f=>{
+      const st = fyStatus(c, f);
+      billed += st.fee; paid += st.paid;
+      if(f===fy) thisFY += st.paid;
+    });
+    collected += paid;
+    const bal = Math.max(billed-paid,0);
+    outstanding += bal;
+    return {c, bal};
+  }).filter(r=>r.bal>0).sort((a,b)=>b.bal-a.bal);
+
+  document.getElementById('repCustomers').textContent = DB.customers.length;
+  document.getElementById('repCollected').textContent = '₹'+collected.toLocaleString('en-IN');
+  document.getElementById('repOutstanding').textContent = '₹'+outstanding.toLocaleString('en-IN');
+  document.getElementById('repThisFY').textContent = '₹'+thisFY.toLocaleString('en-IN');
+
+  document.getElementById('repList').innerHTML = rows.length ? rows.map(r=>`
+    <div class="cust-card" onclick="openDetail('${r.c.id}')" style="cursor:pointer;">
+      <div class="top"><span class="nm">${esc(r.c.name)}</span><span class="mono" style="color:var(--crimson-600);font-weight:700;">₹${r.bal.toLocaleString('en-IN')}</span></div>
+      <div class="meta">${esc(r.c.software)}</div>
+    </div>`).join('') : `<div class="empty-state">No outstanding balances — everyone is paid up 🎉</div>`;
 }
 
 function esc(s){ return (s||'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
