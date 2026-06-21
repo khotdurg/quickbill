@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>QuickBill — Opportunities Software</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f2238">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="config.js"></script>
+<style>
+:root{
+  --navy-900:#0f2238; --navy-700:#1c3a5c; --navy-500:#2c5582;
+  --crimson-600:#9c1f3d; --crimson-500:#bf2a4b; --gold-400:#c9a227;
+  --cream-50:#f7f4ec; --cream-100:#efe9da; --ink-900:#171a1f;
+  --green-ok:#1f7a4d; --amber-due:#b5781a; --red-overdue:#9c1f3d;
+  --radius:14px; --shadow:0 10px 30px -10px rgba(15,34,56,.25);
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--cream-50);color:var(--ink-900);font-family:'Inter',sans-serif;
+  padding-bottom:env(safe-area-inset-bottom);}
+h1,h2,h3,.display{font-family:'Fraunces',serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+.topbar{
+  background:linear-gradient(135deg,var(--navy-900),var(--navy-700) 60%,var(--navy-500));
+  color:#fff;padding:14px 16px;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);
+  padding-top:calc(14px + env(safe-area-inset-top));
+}
+.topbar-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.brand{display:flex;align-items:center;gap:10px;}
+.seal{width:38px;height:38px;flex:none;}
+.brand .product{font-family:'Fraunces',serif;font-weight:800;font-size:18px;}
+.brand .company{font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;opacity:.75;}
+.acct-chip{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
+  border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;}
+.acct-chip img{width:20px;height:20px;border-radius:50%;}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#7c828c;flex:none;}
+.sync-dot.synced{background:#3fcf8e;}
+.sync-dot.syncing{background:var(--gold-400);animation:pulse 1s infinite;}
+.sync-dot.error{background:var(--crimson-500);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-top:12px;padding-bottom:2px;}
+.tab-btn{
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;
+  padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;
+  transition:.18s;white-space:nowrap;flex:none;
+}
+.tab-btn.active{background:var(--gold-400);color:var(--navy-900);border-color:var(--gold-400);}
+
+.wrap{max-width:900px;margin:0 auto;padding:18px 14px 90px;}
+.view{display:none;animation:fadeIn .3s ease;}
+.view.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+.page-title{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+.page-title h2{font-size:22px;margin:0;color:var(--navy-900);}
+.page-title .sub{color:#6b6f76;font-size:12.5px;}
+
+.grid-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;}
+.stat-card{background:#fff;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);border-left:6px solid var(--navy-700);}
+.stat-card.gold{border-left-color:var(--gold-400);}
+.stat-card.crimson{border-left-color:var(--crimson-600);}
+.stat-card.green{border-left-color:var(--green-ok);}
+.stat-card .label{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:#7c828c;font-weight:600;}
+.stat-card .value{font-family:'Fraunces',serif;font-weight:800;font-size:24px;margin-top:4px;color:var(--navy-900);}
+
+.panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:16px;}
+.panel h3{margin:0 0 12px;font-size:15.5px;color:var(--navy-900);}
+
+.btn{border:none;border-radius:10px;padding:11px 16px;font-weight:700;font-size:13.5px;cursor:pointer;
+  transition:.15s;display:inline-flex;align-items:center;gap:8px;justify-content:center;}
+.btn-primary{background:var(--navy-700);color:#fff;}
+.btn-gold{background:var(--gold-400);color:var(--navy-900);}
+.btn-outline{background:#fff;color:var(--navy-700);border:1.5px solid var(--navy-700);}
+.btn-danger{background:#fff;color:var(--crimson-600);border:1.5px solid var(--crimson-600);}
+.btn-sm{padding:6px 11px;font-size:11.5px;border-radius:8px;}
+.btn-full{width:100%;}
+.btn-google{background:#fff;color:#3c4043;border:1.5px solid #dadce0;}
+
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:#8a8f98;padding:8px 8px;border-bottom:2px solid var(--cream-100);}
+td{padding:11px 8px;border-bottom:1px solid var(--cream-100);font-size:13.5px;vertical-align:middle;}
+.badge{padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:700;}
+.badge.ok{background:#e4f5ec;color:var(--green-ok);}
+.badge.due{background:#fdf1de;color:var(--amber-due);}
+.badge.overdue{background:#fbe6ea;color:var(--red-overdue);}
+.name-cell{font-weight:700;color:var(--navy-900);}
+.muted{color:#9499a1;font-size:11.5px;}
+
+/* card list for mobile instead of dense table on small screens */
+.card-list{display:flex;flex-direction:column;gap:10px;}
+.cust-card{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:14px;}
+.cust-card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+.cust-card .top .nm{font-weight:700;color:var(--navy-900);font-size:15px;}
+.cust-card .meta{font-size:12px;color:#7c828c;margin-top:4px;line-height:1.5;}
+.cust-card .row-actions{display:flex;gap:8px;margin-top:10px;}
+
+.form-grid{display:grid;grid-template-columns:1fr;gap:12px;}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:11.5px;font-weight:700;color:var(--navy-700);}
+.field input,.field select,.field textarea{
+  border:1.5px solid #e3ddc9;border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;background:var(--cream-50);width:100%;
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--gold-400);border-color:var(--gold-400);background:#fff;}
+
+.overlay{position:fixed;inset:0;background:rgba(15,34,56,.55);display:none;align-items:flex-end;justify-content:center;z-index:100;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:18px 18px 0 0;max-width:600px;width:100%;max-height:90vh;overflow:auto;padding:22px;box-shadow:0 -10px 40px rgba(0,0,0,.25);}
+.modal h3{margin-top:0;color:var(--navy-900);}
+.modal-actions{display:flex;gap:10px;margin-top:18px;}
+.modal-actions .btn{flex:1;}
+
+.invoice-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+#invoice{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:24px;border-top:8px solid var(--navy-900);}
+.inv-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--cream-100);padding-bottom:16px;margin-bottom:16px;gap:10px;}
+.inv-head .biz .product{font-family:'Fraunces',serif;font-weight:800;font-size:19px;color:var(--navy-900);}
+.inv-head .biz .company{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--crimson-600);font-weight:700;margin-top:2px;}
+.inv-head .meta{text-align:right;}
+.inv-head .meta .tag{font-family:'Fraunces',serif;font-weight:900;font-size:22px;color:var(--cream-100);}
+.inv-num{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--navy-900);font-size:12.5px;}
+.inv-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;}
+.inv-grid .lbl{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#9499a1;font-weight:700;margin-bottom:3px;}
+.inv-table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+.inv-table th{background:var(--navy-900);color:#fff;font-size:10px;letter-spacing:.6px;text-transform:uppercase;padding:9px 10px;text-align:left;}
+.inv-table td{padding:11px 10px;border-bottom:1px solid var(--cream-100);font-size:13px;}
+.inv-total-row{display:flex;justify-content:flex-end;gap:24px;padding:6px 10px;font-size:13px;}
+.inv-total-row .label{color:#6b6f76;}
+.inv-total-row.grand{font-size:17px;font-weight:800;color:var(--navy-900);border-top:2px solid var(--navy-900);margin-top:4px;padding-top:10px;}
+.stamp{position:absolute;width:84px;height:84px;border:3px solid var(--crimson-600);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;transform:rotate(-18deg);opacity:.88;
+  color:var(--crimson-600);font-family:'Fraunces',serif;font-weight:800;font-size:11px;text-align:center;right:30px;margin-top:-150px;}
+
+@media print{ .topbar,.tabs,.invoice-toolbar,.no-print{display:none!important;} body{background:#fff;} #invoice{box-shadow:none;border-radius:0;} .wrap{padding:0;} }
+
+.toast{position:fixed;bottom:18px;left:14px;right:14px;background:var(--navy-900);color:#fff;padding:13px 18px;border-radius:10px;
+  box-shadow:var(--shadow);font-size:13px;font-weight:600;z-index:200;display:flex;align-items:center;gap:10px;
+  transform:translateY(20px);opacity:0;transition:.25s;}
+.toast.show{transform:none;opacity:1;}
+.toast.success{border-left:5px solid var(--green-ok);}
+.toast.error{border-left:5px solid var(--crimson-600);}
+
+.empty-state{text-align:center;padding:36px 16px;color:#9499a1;font-size:13.5px;}
+.search-row{margin-bottom:14px;}
+.search-row input{width:100%;border:1.5px solid #e3ddc9;border-radius:9px;padding:10px 14px;font-size:14px;background:#fff;}
+.signin-screen{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px 16px;}
+.signin-screen .seal-big{width:90px;height:90px;margin-bottom:18px;}
+.signin-screen h2{margin:0 0 6px;color:var(--navy-900);}
+.signin-screen p{color:#666;font-size:13.5px;max-width:340px;margin-bottom:22px;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-row">
+    <div class="brand">
+      <svg class="seal" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="#c9a227" stroke-width="3"/>
+        <line x1="22" y1="22" x2="78" y2="78" stroke="#9c1f3d" stroke-width="2"/>
+        <line x1="78" y1="22" x2="22" y2="78" stroke="#9c1f3d" stroke-width="2"/>
+        <polygon points="50,32 53,40 61,40 54,45 57,53 50,48 43,53 46,45 39,40 47,40" fill="#9c1f3d"/>
+        <text x="50" y="80" text-anchor="middle" fill="#fff" font-family="Fraunces,serif" font-size="11" font-weight="700">OS</text>
+      </svg>
+      <div><div class="product">QuickBill</div><div class="company">Opportunities Software</div></div>
+    </div>
+    <div id="acctArea"></div>
+  </div>
+  <div class="tabs" id="tabsRow" style="display:none;">
+    <button class="tab-btn active" data-view="dashboard">Dashboard</button>
+    <button class="tab-btn" data-view="customers">Customers</button>
+    <button class="tab-btn" data-view="invoice">Generate Bill</button>
+    <button class="tab-btn" data-view="sync">Cloud Sync</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- SIGN-IN SCREEN -->
+  <div class="view active" id="view-signin">
+    <div class="signin-screen">
+      <svg class="seal-big" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="#c9a227" stroke-width="3"/>
+        <line x1="22" y1="22" x2="78" y2="78" stroke="#9c1f3d" stroke-width="2"/>
+        <line x1="78" y1="22" x2="22" y2="78" stroke="#9c1f3d" stroke-width="2"/>
+        <circle cx="50" cy="50" r="44" fill="#0f2238" opacity="0.04"/>
+        <polygon points="50,32 53,40 61,40 54,45 57,53 50,48 43,53 46,45 39,40 47,40" fill="#9c1f3d"/>
+        <text x="50" y="80" text-anchor="middle" fill="#0f2238" font-family="Fraunces,serif" font-size="11" font-weight="700">OS</text>
+      </svg>
+      <h2 class="display">Welcome to QuickBill</h2>
+      <p>Sign in with Google to keep your customer list and bills safely stored in your own Google Drive — on every device.</p>
+      <button class="btn btn-google" onclick="signIn()">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 11.8 3 2 12.8 2 25s9.8 22 22 22c11 0 21-8 21-22 0-1.5-.2-3-.4-4.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 19 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3c-7.4 0-13.8 4-17.3 9.9z"/><path fill="#4CAF50" d="M24 47c5.3 0 10.1-1.8 13.8-4.9l-6.4-5.3C29.3 38.5 26.8 39 24 39c-5.3 0-9.7-3.3-11.3-7.9l-6.6 5C9.5 42.9 16.1 47 24 47z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.8l6.4 5.3C41.5 35.8 44 30.8 44 25c0-1.5-.2-3-.4-4.5z"/></svg>
+        Sign in with Google
+      </button>
+      <p class="muted" style="margin-top:18px;max-width:300px;">Each person who uses this app signs in with their own account — your data is private to you.</p>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="view" id="view-dashboard">
+    <div class="page-title"><div><h2>Dashboard</h2><div class="sub">Financial Year <span id="fyLabelDash"></span></div></div></div>
+    <div class="grid-stats">
+      <div class="stat-card"><div class="label">Customers</div><div class="value" id="statTotal">0</div></div>
+      <div class="stat-card green"><div class="label">Paid this FY</div><div class="value" id="statPaid">0</div></div>
+      <div class="stat-card crimson"><div class="label">Overdue</div><div class="value" id="statOverdue">0</div></div>
+      <div class="stat-card gold"><div class="label">Revenue</div><div class="value mono" id="statRevenue">₹0</div></div>
+    </div>
+    <div class="panel">
+      <h3>Maintenance Status</h3>
+      <div class="search-row"><input id="dashSearch" placeholder="Search customer..."></div>
+      <div class="card-list" id="dashList"></div>
+      <div class="empty-state" id="dashEmpty" style="display:none;">No customers yet. Add one from the Customers tab.</div>
+    </div>
+  </div>
+
+  <!-- CUSTOMERS -->
+  <div class="view" id="view-customers">
+    <div class="page-title"><div><h2>Customers</h2><div class="sub">Everyone who purchased your software</div></div></div>
+    <button class="btn btn-gold btn-full" style="margin-bottom:14px;" onclick="openCustomerModal()">+ Add Customer</button>
+    <div class="panel">
+      <div class="search-row"><input id="custSearch" placeholder="Search name, email, phone..."></div>
+      <div class="card-list" id="custList"></div>
+      <div class="empty-state" id="custEmpty" style="display:none;">No customers added yet.</div>
+    </div>
+  </div>
+
+  <!-- INVOICE -->
+  <div class="view" id="view-invoice">
+    <div class="page-title"><div><h2>Generate Bill</h2><div class="sub">Create a maintenance invoice</div></div></div>
+    <div class="panel no-print">
+      <div class="form-grid">
+        <div class="field"><label>Customer</label><select id="invCustomer" onchange="renderInvoice()"></select></div>
+        <div class="field"><label>Financial Year</label><select id="invFY" onchange="renderInvoice()"></select></div>
+        <div class="field"><label>Invoice Date</label><input type="date" id="invDate" onchange="renderInvoice()"></div>
+        <div class="field"><label>Amount (₹)</label><input type="number" id="invAmount"></div>
+      </div>
+      <div class="invoice-toolbar">
+        <button class="btn btn-outline btn-sm" onclick="markInvoicePaid()">✓ Mark Paid &amp; Save</button>
+        <button class="btn btn-primary btn-sm" onclick="window.print()">🖨 Print / Save PDF</button>
+      </div>
+    </div>
+    <div id="invoice"></div>
+  </div>
+
+  <!-- CLOUD SYNC -->
+  <div class="view" id="view-sync">
+    <div class="page-title"><div><h2>Cloud Sync</h2><div class="sub">Your data, stored in your Google Drive</div></div></div>
+    <div class="panel">
+      <h3>Status</h3>
+      <p id="syncStatusText" class="muted">Not connected.</p>
+      <p class="muted">Stored at: <span class="mono">My Drive / <span id="folderNameShown"></span> / <span id="fileNameShown"></span></span></p>
+      <button class="btn btn-outline btn-full" onclick="syncNow(true)">⟲ Sync Now</button>
+    </div>
+    <div class="panel">
+      <h3>Sharing this app with your team</h3>
+      <p style="color:#555;font-size:13.5px;line-height:1.6;">
+        Share the app link with anyone on your team. When they open it on their phone and sign in with <b>their own</b> Google account,
+        QuickBill creates a private copy of the database in <b>their</b> Drive — separate from yours.
+      </p>
+      <p style="color:#555;font-size:13.5px;line-height:1.6;">
+        To let a teammate work on the <b>same</b> customer database as you: open Google Drive on the web, find the
+        <span class="mono">QuickBill Data</span> folder, right-click → <b>Share</b> → add their email with <b>Editor</b> access.
+        They then use the <b>"Use a shared database"</b> option below.
+      </p>
+      <button class="btn btn-outline btn-full" onclick="promptSharedFile()">🔗 Use a Shared Database File</button>
+    </div>
+    <div class="panel">
+      <h3>Account</h3>
+      <button class="btn btn-danger btn-full" onclick="signOut()">Sign Out</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- CUSTOMER MODAL -->
+<div class="overlay" id="customerOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Add Customer</h3>
+    <input type="hidden" id="custId">
+    <div class="form-grid">
+      <div class="field"><label>Customer / Company Name</label><input id="fName" placeholder="e.g. Sharma Traders"></div>
+      <div class="field"><label>Phone</label><input id="fPhone" placeholder="+91 ..."></div>
+      <div class="field"><label>Email</label><input id="fEmail" placeholder="name@email.com"></div>
+      <div class="field"><label>Software Purchased</label><input id="fSoftware" value="QuickBill"></div>
+      <div class="field"><label>Purchase Date</label><input type="date" id="fPurchaseDate"></div>
+      <div class="field"><label>Annual Maintenance Fee (₹)</label><input type="number" id="fFee" value="5000"></div>
+      <div class="field"><label>Address / Notes</label><textarea id="fNotes" rows="2"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeCustomerModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="saveCustomer()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== STATE ===================== */
+let accessToken = null;
+let tokenClient = null;
+let userProfile = null;
+let driveFileId = null;     // the database file's Drive ID
+let driveFolderId = null;
+let DB = {customers:[], payments:[]};
+let syncTimer = null;
+
+const LOCAL_CACHE_KEY = 'quickbill_local_cache_v1';
+
+/* ===================== GOOGLE SIGN-IN ===================== */
+window.onload = ()=>{
+  if(!window.google){ setTimeout(()=>window.onload(),300); return; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile',
+    callback: onTokenReceived,
+  });
+  // try silent restore
+  const savedToken = sessionStorage.getItem('qb_token');
+  if(savedToken){ accessToken = savedToken; afterSignIn(); }
+};
+
+function signIn(){ tokenClient.requestAccessToken({prompt:'consent'}); }
+function onTokenReceived(resp){
+  if(resp.error){ toast('Sign-in failed: '+resp.error,'error'); return; }
+  accessToken = resp.access_token;
+  sessionStorage.setItem('qb_token', accessToken);
+  afterSignIn();
+}
+function signOut(){
+  sessionStorage.removeItem('qb_token');
+  accessToken=null; userProfile=null; driveFileId=null; driveFolderId=null;
+  document.getElementById('view-signin').classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>{ if(v.id!=='view-signin') v.classList.remove('active'); });
+  document.getElementById('tabsRow').style.display='none';
+  document.getElementById('acctArea').innerHTML='';
+}
+
+async function afterSignIn(){
+  document.getElementById('view-signin').classList.remove('active');
+  document.getElementById('tabsRow').style.display='flex';
+  await fetchProfile();
+  renderAcctChip('syncing');
+  await ensureDriveFile();
+  await loadFromDrive();
+  switchView('dashboard');
+  renderAcctChip('synced');
+  document.getElementById('folderNameShown').textContent = DRIVE_FOLDER_NAME;
+  document.getElementById('fileNameShown').textContent = DRIVE_FILE_NAME;
+}
+
+async function fetchProfile(){
+  try{
+    const r = await fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{Authorization:'Bearer '+accessToken}});
+    userProfile = await r.json();
+  }catch(e){ userProfile = {name:'Account'}; }
+}
+function renderAcctChip(state){
+  const dotClass = state==='synced'?'synced':state==='syncing'?'syncing':state==='error'?'error':'';
+  document.getElementById('acctArea').innerHTML = `
+    <div class="acct-chip" onclick="switchView('sync')">
+      <span class="sync-dot ${dotClass}"></span>
+      ${userProfile && userProfile.picture ? `<img src="${userProfile.picture}">` : ''}
+      <span>${userProfile ? esc((userProfile.name||'Account').split(' ')[0]) : ''}</span>
+    </div>`;
+  document.getElementById('syncStatusText').textContent =
+    state==='synced' ? 'Connected — your data is backed up to Google Drive.' :
+    state==='syncing' ? 'Syncing with Google Drive...' :
+    state==='error' ? 'Could not reach Google Drive. Working from local copy.' : 'Not connected.';
+}
+
+/* ===================== DRIVE FILE HANDLING ===================== */
+async function driveApi(url, opts={}){
+  opts.headers = Object.assign({Authorization:'Bearer '+accessToken}, opts.headers||{});
+  const r = await fetch(url, opts);
+  if(r.status===401){ throw new Error('auth_expired'); }
+  return r;
+}
+
+async function ensureDriveFile(){
+  try{
+    // 1. find or create folder
+    let r = await driveApi(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`)}&fields=files(id,name)`);
+    let data = await r.json();
+    if(data.files && data.files.length){ driveFolderId = data.files[0].id; }
+    else{
+      r = await driveApi('https://www.googleapis.com/drive/v3/files',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name:DRIVE_FOLDER_NAME, mimeType:'application/vnd.google-apps.folder'})
+      });
+      const folder = await r.json(); driveFolderId = folder.id;
+    }
+    // 2. find or create file inside folder (skip if user picked a shared file already)
+    if(!driveFileId){
+      const savedFileId = localStorage.getItem('qb_drive_file_id');
+      if(savedFileId){ driveFileId = savedFileId; return; }
+      r = await driveApi(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${DRIVE_FILE_NAME}' and '${driveFolderId}' in parents and trashed=false`)}&fields=files(id,name)`);
+      data = await r.json();
+      if(data.files && data.files.length){ driveFileId = data.files[0].id; }
+      else{
+        r = await driveApi('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+          method:'POST',
+          headers:{'Content-Type':'multipart/related; boundary=qbboundary'},
+          body: buildMultipart({name:DRIVE_FILE_NAME, parents:[driveFolderId]}, JSON.stringify({customers:[],payments:[]}))
+        });
+        const file = await r.json(); driveFileId = file.id;
+      }
+      localStorage.setItem('qb_drive_file_id', driveFileId);
+    }
+  }catch(e){ renderAcctChip('error'); }
+}
+
+function buildMultipart(meta, content){
+  const boundary='qbboundary';
+  return `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
+}
+
+async function loadFromDrive(){
+  try{
+    const r = await driveApi(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
+    const text = await r.text();
+    DB = text ? JSON.parse(text) : {customers:[],payments:[]};
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(DB));
+  }catch(e){
+    const cached = localStorage.getItem(LOCAL_CACHE_KEY);
+    DB = cached ? JSON.parse(cached) : {customers:[],payments:[]};
+    renderAcctChip('error');
+  }
+  renderDashboard(); renderCustomers(); populateInvoiceSelectors();
+}
+
+function saveDB(){
+  localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(DB));
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushToDrive, 900); // debounce
+}
+async function pushToDrive(){
+  if(!accessToken || !driveFileId) return;
+  renderAcctChip('syncing');
+  try{
+    await driveApi(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,{
+      method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(DB)
+    });
+    renderAcctChip('synced');
+  }catch(e){ renderAcctChip('error'); }
+}
+async function syncNow(manual){
+  await loadFromDrive();
+  if(manual) toast('Synced with Google Drive');
+}
+
+function promptSharedFile(){
+  const id = prompt('Paste the Google Drive File ID of the shared "quickbill-database.json" file.\n\n(Open the file in Drive on the web — the ID is the long code in the URL after /d/ and before /view)');
+  if(!id) return;
+  driveFileId = id.trim();
+  localStorage.setItem('qb_drive_file_id', driveFileId);
+  loadFromDrive();
+  toast('Now using shared database');
+}
+
+/* ===================== FY HELPERS ===================== */
+function fyOf(dateStr){ const d=new Date(dateStr); const y=d.getFullYear(); return (d.getMonth()>=3)?`${y}-${(y+1).toString().slice(2)}`:`${y-1}-${y.toString().slice(2)}`; }
+function currentFY(){ return fyOf(new Date().toISOString()); }
+function fyList(back=3,fwd=1){ const now=new Date(); let sy=now.getMonth()>=3?now.getFullYear():now.getFullYear()-1; const l=[]; for(let i=back;i>=-fwd;i--){const y=sy-i; l.push(`${y}-${(y+1).toString().slice(2)}`);} return l; }
+function maintenanceDueDate(purchaseDateStr, fy){ const sy=parseInt(fy.split('-')[0]); return `${sy}-04-01`; }
+function isPaid(cid,fy){ return DB.payments.some(p=>p.customerId===cid&&p.fy===fy&&p.status==='paid'); }
+function paymentRecord(cid,fy){ return DB.payments.find(p=>p.customerId===cid&&p.fy===fy); }
+
+/* ===================== TOAST / NAV ===================== */
+function toast(msg,type='success'){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast '+type,2200); }
+function switchView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+  if(name==='dashboard') renderDashboard();
+  if(name==='customers') renderCustomers();
+  if(name==='invoice') prepInvoiceView();
+}
+document.querySelectorAll('.tab-btn').forEach(b=> b.addEventListener('click', ()=>switchView(b.dataset.view)));
+
+/* ===================== CUSTOMER CRUD ===================== */
+function uid(){ return 'c_'+Math.random().toString(36).slice(2,10); }
+function openCustomerModal(id=null){
+  document.getElementById('customerOverlay').classList.add('show');
+  if(id){
+    const c = DB.customers.find(x=>x.id===id);
+    document.getElementById('modalTitle').textContent='Edit Customer';
+    document.getElementById('custId').value=c.id;
+    document.getElementById('fName').value=c.name;
+    document.getElementById('fPhone').value=c.phone||'';
+    document.getElementById('fEmail').value=c.email||'';
+    document.getElementById('fSoftware').value=c.software||'QuickBill';
+    document.getElementById('fPurchaseDate').value=c.purchaseDate||'';
+    document.getElementById('fFee').value=c.fee||5000;
+    document.getElementById('fNotes').value=c.notes||'';
+  } else {
+    document.getElementById('modalTitle').textContent='Add Customer';
+    document.getElementById('custId').value='';
+    ['fName','fPhone','fEmail','fNotes'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('fSoftware').value='QuickBill';
+    document.getElementById('fFee').value=5000;
+    document.getElementById('fPurchaseDate').value=new Date().toISOString().slice(0,10);
+  }
+}
+function closeCustomerModal(){ document.getElementById('customerOverlay').classList.remove('show'); }
+function saveCustomer(){
+  const name=document.getElementById('fName').value.trim();
+  if(!name){ toast('Please enter a customer name','error'); return; }
+  const id=document.getElementById('custId').value||uid();
+  const data={ id, name, phone:document.getElementById('fPhone').value.trim(), email:document.getElementById('fEmail').value.trim(),
+    software:document.getElementById('fSoftware').value.trim()||'QuickBill', purchaseDate:document.getElementById('fPurchaseDate').value,
+    fee:parseFloat(document.getElementById('fFee').value)||0, notes:document.getElementById('fNotes').value.trim() };
+  const idx=DB.customers.findIndex(c=>c.id===id);
+  if(idx>=0) DB.customers[idx]=data; else DB.customers.push(data);
+  saveDB(); closeCustomerModal();
+  toast(idx>=0?'Customer updated':'Customer added');
+  renderCustomers(); renderDashboard(); populateInvoiceSelectors();
+}
+function deleteCustomer(id){
+  if(!confirm('Delete this customer and all their payment records?')) return;
+  DB.customers=DB.customers.filter(c=>c.id!==id);
+  DB.payments=DB.payments.filter(p=>p.customerId!==id);
+  saveDB(); renderCustomers(); renderDashboard(); populateInvoiceSelectors();
+  toast('Customer deleted');
+}
+
+/* ===================== RENDER ===================== */
+function renderCustomers(){
+  const q=(document.getElementById('custSearch').value||'').toLowerCase();
+  const list=DB.customers.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.software||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)||(c.phone||'').toLowerCase().includes(q));
+  document.getElementById('custEmpty').style.display=list.length?'none':'block';
+  document.getElementById('custList').innerHTML=list.map(c=>`
+    <div class="cust-card">
+      <div class="top"><span class="nm">${esc(c.name)}</span><span class="mono" style="font-size:12px;color:var(--navy-700);font-weight:700;">₹${Number(c.fee).toLocaleString('en-IN')}</span></div>
+      <div class="meta">${esc(c.software)} · Purchased ${fmtDate(c.purchaseDate)}<br>${esc(c.phone||'')} ${c.email?' · '+esc(c.email):''}</div>
+      <div class="row-actions">
+        <button class="btn btn-outline btn-sm" onclick="openCustomerModal('${c.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCustomer('${c.id}')">Delete</button>
+      </div>
+    </div>`).join('');
+}
+document.getElementById('custSearch').addEventListener('input', renderCustomers);
+
+function renderDashboard(){
+  const fy=currentFY();
+  document.getElementById('fyLabelDash').textContent=fy;
+  const q=(document.getElementById('dashSearch').value||'').toLowerCase();
+  let paidCount=0, overdueCount=0, revenue=0;
+  const today=new Date().toISOString().slice(0,10);
+  const list=DB.customers.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.software||'').toLowerCase().includes(q));
+  document.getElementById('dashEmpty').style.display=DB.customers.length?'none':'block';
+  document.getElementById('dashList').innerHTML=list.map(c=>{
+    const due=maintenanceDueDate(c.purchaseDate,fy);
+    const rec=paymentRecord(c.id,fy);
+    let status='Due',badge='due';
+    if(rec&&rec.status==='paid'){status='Paid';badge='ok';paidCount++;revenue+=Number(rec.amount||c.fee);}
+    else if(today>due){status='Overdue';badge='overdue';overdueCount++;}
+    return `<div class="cust-card">
+      <div class="top"><span class="nm">${esc(c.name)}</span><span class="badge ${badge}">${status}</span></div>
+      <div class="meta">${esc(c.software)} · Due ${fmtDate(due)}</div>
+      <div class="row-actions"><button class="btn btn-outline btn-sm" onclick="goToInvoice('${c.id}','${fy}')">Generate Bill</button></div>
+    </div>`;
+  }).join('');
+  document.getElementById('statTotal').textContent=DB.customers.length;
+  document.getElementById('statPaid').textContent=paidCount;
+  document.getElementById('statOverdue').textContent=overdueCount;
+  document.getElementById('statRevenue').textContent='₹'+revenue.toLocaleString('en-IN');
+}
+document.getElementById('dashSearch').addEventListener('input', renderDashboard);
+
+function goToInvoice(cid,fy){ switchView('invoice'); document.getElementById('invCustomer').value=cid; document.getElementById('invFY').value=fy; renderInvoice(); }
+
+function populateInvoiceSelectors(){
+  document.getElementById('invCustomer').innerHTML = DB.customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('') || `<option value="">No customers yet</option>`;
+  const fySel=document.getElementById('invFY');
+  fySel.innerHTML = fyList().map(fy=>`<option value="${fy}">${fy}</option>`).join('');
+  fySel.value = currentFY();
+  document.getElementById('invDate').value = new Date().toISOString().slice(0,10);
+}
+function prepInvoiceView(){ populateInvoiceSelectors(); const c=DB.customers[0]; if(c) document.getElementById('invAmount').value=c.fee; renderInvoice(); }
+function invoiceNumberFor(cid,fy){ const idx=(DB.customers.findIndex(x=>x.id===cid)+1).toString().padStart(3,'0'); return `QB/${fy}/${idx}`; }
+function renderInvoice(){
+  const cid=document.getElementById('invCustomer').value, fy=document.getElementById('invFY').value, date=document.getElementById('invDate').value;
+  const c=DB.customers.find(x=>x.id===cid);
+  const target=document.getElementById('invoice');
+  if(!c){ target.innerHTML='<p class="muted" style="text-align:center;">Add a customer first.</p>'; return; }
+  if(!document.getElementById('invAmount').dataset.touched) document.getElementById('invAmount').value=c.fee;
+  const amount=parseFloat(document.getElementById('invAmount').value)||c.fee;
+  const rec=paymentRecord(cid,fy); const paid=rec&&rec.status==='paid';
+  target.innerHTML=`
+    <div class="inv-head">
+      <div class="biz"><div class="product">QuickBill</div><div class="company">Opportunities Software</div></div>
+      <div class="meta"><div class="tag">INVOICE</div><div class="inv-num">${invoiceNumberFor(cid,fy)}</div><div class="muted">${fmtDate(date)}</div></div>
+    </div>
+    <div class="inv-grid">
+      <div><div class="lbl">Billed To</div><div style="font-weight:700;color:var(--navy-900);">${esc(c.name)}</div><div class="muted">${esc(c.email||'')} ${c.phone?' · '+esc(c.phone):''}</div></div>
+      <div><div class="lbl">Financial Year</div><div style="font-weight:700;color:var(--navy-900);">${fy}</div><div class="muted">${esc(c.software)}</div></div>
+    </div>
+    <table class="inv-table"><thead><tr><th>Description</th><th style="text-align:right;">Amount (₹)</th></tr></thead>
+      <tbody><tr><td>Annual Maintenance &amp; Support — ${esc(c.software)} (FY ${fy})</td><td style="text-align:right;" class="mono">${amount.toLocaleString('en-IN')}</td></tr></tbody></table>
+    <div class="inv-total-row grand"><span>Total Due</span><span class="mono">₹${amount.toLocaleString('en-IN')}</span></div>
+    ${paid?`<div class="stamp">PAID<br><span style="font-size:9px;">${fmtDate(rec.date)}</span></div>`:''}`;
+}
+document.getElementById('invAmount').addEventListener('input', e=> e.target.dataset.touched='1');
+function markInvoicePaid(){
+  const cid=document.getElementById('invCustomer').value, fy=document.getElementById('invFY').value, amount=parseFloat(document.getElementById('invAmount').value);
+  if(!cid){ toast('Select a customer','error'); return; }
+  const existing=paymentRecord(cid,fy);
+  if(existing){ existing.status='paid'; existing.amount=amount; existing.date=new Date().toISOString().slice(0,10); }
+  else DB.payments.push({customerId:cid,fy,status:'paid',amount,date:new Date().toISOString().slice(0,10)});
+  saveDB(); renderInvoice(); toast('Invoice marked paid & synced');
+}
+
+function esc(s){ return (s||'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function fmtDate(d){ if(!d) return '-'; return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+
+if('serviceWorker' in navigator){ window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+</script>
+</body>
+</html>
