@@ -6,7 +6,7 @@
 // is stored in THEIR OWN Google Drive — never shared between users
 // unless they choose to share the Drive file/folder themselves.
 // ===========================================================
-const GOOGLE_CLIENT_ID = "PASTE-YOUR-CLIENT-ID-HERE.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "124931782063-08q4b448s4d53q3o60nookkra7uda1pl.apps.googleusercontent.com";
 
 // Name of the folder this app creates inside each user's "My Drive"
 const DRIVE_FOLDER_NAME = "QuickBill Data";
