@@ -67,14 +67,14 @@
             <h2>Explore QuickBill Projects & Systems</h2>
             <p>Take a look at descriptions, snapshots, and walkthrough guides of our features.</p>
             <div id="publicGallery" class="gallery-grid">
-                <p>Loading project presentation modules...</p>
+                <p>Please sign into the admin panel to populate or sync your Google Drive content portfolio.</p>
             </div>
         </section>
 
         <section id="adminView" class="view-section">
             <div id="authContainer" style="text-align: center; margin-top: 5rem;">
                 <h3>Administrator Access Authentication</h3>
-                <p style="margin-bottom: 1.5rem;">Sign-in using an authorized Google Cloud verification account.</p>
+                <p style="margin-bottom: 1.5rem;">Sign-in using an authorized Google account to manage your personal database.</p>
                 <button class="btn" onclick="handleAuthClick()">Sign In with Google</button>
             </div>
 
@@ -172,11 +172,14 @@
     <script>
         let tokenClient;
         let accessToken = null;
+        let databaseFileId = null;
 
-        // Fetch public content automatically on load
-        window.addEventListener('DOMContentLoaded', () => {
-            loadPublicContent();
-        });
+        // Local structure mimicking data sheets inside the active runtime configuration state
+        let localDatabaseState = {
+            Content: [],
+            Customers: [],
+            Maintenance: []
+        };
 
         // Toggle navigation view between Admin and Public spaces
         function toggleAdminView() {
@@ -195,7 +198,7 @@
             }
         }
 
-        // Sub-navigation dashboard interface handler
+        // Sub-navigation dashboard interface tab handler
         function switchAdminTab(tabId, element) {
             document.querySelectorAll('.admin-tab-content').forEach(tab => tab.style.display = 'none');
             document.querySelectorAll('.tab-link').forEach(link => link.classList.remove('active'));
@@ -203,167 +206,202 @@
             element.classList.add('active');
         }
 
-        // Fetch Public View records without needing OAuth tokens via the public API endpoints
-        function loadPublicContent() {
-            const gallery = document.getElementById('publicGallery');
-            // Reading values using Google Sheet JSON endpoints
-            fetch(`https://docs.google.com/spreadsheets/d/${CONFIG.SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Content`)
-                .then(res => res.text())
-                .then(txt => {
-                    const data = JSON.parse(txt.substr(47).slice(0, -2));
-                    const rows = data.table.rows;
-                    gallery.innerHTML = '';
-                    
-                    if(rows.length === 0) {
-                        gallery.innerHTML = `<p>No promotional media modules initialized in the sheet database yet.</p>`;
-                        return;
-                    }
-
-                    rows.forEach(row => {
-                        const type = row.c[1]?.v || 'photo';
-                        const title = row.c[2]?.v || '';
-                        const desc = row.c[3]?.v || '';
-                        const mediaUrl = row.c[4]?.v || '';
-                        
-                        let mediaHtml = '';
-                        if(type === 'video') {
-                            // Converts watch links into clean iframe wrappers
-                            const embedUrl = mediaUrl.replace("watch?v=", "embed/");
-                            mediaHtml = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
-                        } else {
-                            mediaHtml = `<img src="${mediaUrl}" alt="QuickBill Graphic Asset">`;
-                        }
-
-                        gallery.innerHTML += `
-                            <div class="media-card">
-                                ${mediaHtml}
-                                <h3 style="margin: 0.5rem 0; color: var(--navy-900);">${title}</h3>
-                                <p style="font-size: 0.9rem; color: #555;">${desc}</p>
-                            </div>
-                        `;
-                    });
-                }).catch(err => {
-                    gallery.innerHTML = `<p>Error loading showcase contents.</p>`;
-                    console.error(err);
-                });
-        }
-
-        // Google Authentication Framework initialization using client token routines
+        // Google Authentication Framework initialization using the local configurations file
         function handleAuthClick() {
             tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CONFIG.CLIENT_ID,
-                scope: CONFIG.SCOPES,
-                callback: (tokenResponse) => {
+                client_id: GOOGLE_CLIENT_ID,
+                scope: "https://www.googleapis.com/auth/drive.file",
+                callback: async (tokenResponse) => {
                     if (tokenResponse.access_token) {
                         accessToken = tokenResponse.access_token;
                         document.getElementById('authContainer').style.display = 'none';
                         document.getElementById('dashboardContainer').style.display = 'block';
-                        fetchAllAdminData();
+                        
+                        await initializeUserDatabase();
                     }
                 },
             });
             tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
-        function fetchAllAdminData() {
-            fetchTableData('Customers', 'customersTable');
-            fetchTableData('Maintenance', 'maintenanceTable');
-            fetchTableData('Content', 'contentTable');
+        // Locate database JSON file inside user's Drive or instantiate a template schema if new
+        async function initializeUserDatabase() {
+            try {
+                const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}' and trashed=false`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const searchResult = await searchResponse.json();
+
+                if (searchResult.files && searchResult.files.length > 0) {
+                    databaseFileId = searchResult.files[0].id;
+                    await downloadDatabaseFile();
+                } else {
+                    await saveDatabaseToDrive();
+                }
+                
+                renderAdminTables();
+                renderPublicGallery(); 
+            } catch (err) {
+                console.error("Error connecting to Google Drive storage layer:", err);
+                alert("Could not pull or initialize the database layout file from Google Drive.");
+            }
         }
 
-        // Populates tabular interfaces across backend administrative views
-        function fetchTableData(sheetName, tableId) {
-            fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/${sheetName}!A2:G100`, {
+        // Download JSON binary streams from active accounts file mappings
+        async function downloadDatabaseFile() {
+            const response = await fetch(`https://www.googleapis.com/drive/v3/files/${databaseFileId}?alt=media`, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
-            })
-            .then(res => res.json())
-            .then(data => {
-                const tbody = document.getElementById(tableId).getElementsByTagName('tbody')[0];
-                tbody.innerHTML = '';
-                if(!data.values || data.values.length === 0) return;
+            });
+            localDatabaseState = await response.json();
+        }
 
-                data.values.forEach(row => {
-                    let tr = document.createElement('tr');
-                    row.forEach(cell => {
-                        let td = document.createElement('td');
-                        if(cell === 'Paid' || cell === 'Not Paid') {
-                            const badgeClass = cell === 'Paid' ? 'badge paid' : 'badge unpaid';
-                            td.innerHTML = `<span class="${badgeClass}">${cell}</span>`;
-                        } else {
-                            td.innerText = cell;
-                        }
-                        tr.appendChild(td);
-                    });
+        // Multi-part form stream execution used to patch and modify storage allocations
+        async function saveDatabaseToDrive() {
+            const metadata = { name: DRIVE_FILE_NAME, mimeType: "application/json" };
+            
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            form.append('file', new Blob([JSON.stringify(localDatabaseState)], { type: 'application/json' }));
 
-                    // Add Invoice generation utility exclusively inside the customer layout
-                    if(tableId === 'customersTable') {
-                        let actionTd = document.createElement('td');
-                        actionTd.innerHTML = `<button class="btn" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="generateInvoicePDF(${JSON.stringify(row)})">Get PDF</button>`;
-                        tr.appendChild(actionTd);
-                    }
-                    tbody.appendChild(tr);
-                });
+            const url = databaseFileId 
+                ? `https://www.googleapis.com/upload/drive/v3/files/${databaseFileId}?uploadType=multipart`
+                : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
+
+            const method = databaseFileId ? 'PATCH' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+                body: form
+            });
+            
+            if (!databaseFileId) {
+                const resData = await response.json();
+                databaseFileId = resData.id;
+            }
+        }
+
+        // Render functions processing internal structured JSON state modifications directly into tables
+        function renderAdminTables() {
+            const customerBody = document.getElementById('customersTable').getElementsByTagName('tbody')[0];
+            customerBody.innerHTML = '';
+            localDatabaseState.Customers.forEach(customer => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${customer.id}</td>
+                    <td>${customer.name}</td>
+                    <td>${customer.address}</td>
+                    <td>${customer.date}</td>
+                    <td>${customer.phone}</td>
+                    <td><span class="badge ${customer.status === 'Paid' ? 'paid' : 'unpaid'}">${customer.status}</span></td>
+                    <td><button class="btn" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick='generateInvoicePDF(${JSON.stringify(customer)})'>Get PDF</button></td>
+                `;
+                customerBody.appendChild(tr);
+            });
+
+            const maintenanceBody = document.getElementById('maintenanceTable').getElementsByTagName('tbody')[0];
+            maintenanceBody.innerHTML = '';
+            localDatabaseState.Maintenance.forEach(item => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.id}</td>
+                    <td>${item.year}</td>
+                    <td>${item.amount}</td>
+                    <td><span class="badge ${item.status === 'Paid' ? 'paid' : 'unpaid'}">${item.status}</span></td>
+                `;
+                maintenanceBody.appendChild(tr);
+            });
+
+            const contentBody = document.getElementById('contentTable').getElementsByTagName('tbody')[0];
+            contentBody.innerHTML = '';
+            localDatabaseState.Content.forEach(item => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.id}</td>
+                    <td>${item.type}</td>
+                    <td>${item.title}</td>
+                    <td>${item.desc}</td>
+                `;
+                contentBody.appendChild(tr);
             });
         }
 
-        // Push structural row parameters into Google Sheet tabs via post allocations
-        function appendRow(event, sheetName) {
-            event.preventDefault();
-            let values = [];
-            
-            if(sheetName === 'Customers') {
-                values = [[
-                    document.getElementById('c_id').value,
-                    document.getElementById('c_name').value,
-                    document.getElementById('c_addr').value,
-                    document.getElementById('c_date').value,
-                    document.getElementById('c_phone').value,
-                    document.getElementById('c_status').value
-                ]];
-            } else if(sheetName === 'Maintenance') {
-                values = [[
-                    document.getElementById('m_id').value,
-                    document.getElementById('m_year').value,
-                    document.getElementById('m_amount').value,
-                    document.getElementById('m_status').value
-                ]];
-            } else if(sheetName === 'Content') {
-                values = [[
-                    document.getElementById('pub_id').value,
-                    document.getElementById('pub_type').value,
-                    document.getElementById('pub_title').value,
-                    document.getElementById('pub_desc').value,
-                    document.getElementById('pub_url').value
-                ]];
+        function renderPublicGallery() {
+            const gallery = document.getElementById('publicGallery');
+            gallery.innerHTML = '';
+
+            if (localDatabaseState.Content.length === 0) {
+                gallery.innerHTML = `<p>No promotional media modules initialized in the client database yet.</p>`;
+                return;
             }
 
-            fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/${sheetName}!A:A:append?valueInputOption=USER_ENTERED`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ values: values })
-            })
-            .then(res => res.json())
-            .then(data => {
-                alert(`Entry successfully committed to ${sheetName}!`);
+            localDatabaseState.Content.forEach(item => {
+                let mediaHtml = '';
+                if (item.type === 'video') {
+                    const embedUrl = item.url.replace("watch?v=", "embed/");
+                    mediaHtml = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
+                } else {
+                    mediaHtml = `<img src="${item.url}" alt="QuickBill Graphic Asset">`;
+                }
+
+                gallery.innerHTML += `
+                    <div class="media-card">
+                        ${mediaHtml}
+                        <h3 style="margin: 0.5rem 0; color: var(--navy-900);">${item.title}</h3>
+                        <p style="font-size: 0.9rem; color: #555;">${item.desc}</p>
+                    </div>
+                `;
+            });
+        }
+
+        // Push form parameters onto local object configurations state and write execution to Google Drive
+        function appendRow(event, targetArray) {
+            event.preventDefault();
+            let newEntry = {};
+            
+            if (targetArray === 'Customers') {
+                newEntry = {
+                    id: document.getElementById('c_id').value,
+                    name: document.getElementById('c_name').value,
+                    address: document.getElementById('c_addr').value,
+                    date: document.getElementById('c_date').value,
+                    phone: document.getElementById('c_phone').value,
+                    status: document.getElementById('c_status').value
+                };
+            } else if (targetArray === 'Maintenance') {
+                newEntry = {
+                    id: document.getElementById('m_id').value,
+                    year: document.getElementById('m_year').value,
+                    amount: document.getElementById('m_amount').value,
+                    status: document.getElementById('m_status').value
+                };
+            } else if (targetArray === 'Content') {
+                newEntry = {
+                    id: document.getElementById('pub_id').value,
+                    type: document.getElementById('pub_type').value,
+                    title: document.getElementById('pub_title').value,
+                    desc: document.getElementById('pub_desc').value,
+                    url: document.getElementById('pub_url').value
+                };
+            }
+
+            localDatabaseState[targetArray].push(newEntry);
+            
+            saveDatabaseToDrive().then(() => {
+                alert(`Entry successfully committed directly to your personal Google Drive database!`);
                 event.target.reset();
-                fetchAllAdminData();
-                if(sheetName === 'Content') loadPublicContent();
-            })
-            .catch(err => alert('Failed to commit record updates to spreadsheet.'));
+                renderAdminTables();
+                if (targetArray === 'Content') renderPublicGallery();
+            }).catch(err => alert('Failed to sync internal state definitions with Google Cloud storage.'));
         }
 
         // Standalone Client-Side Invoice Engine using jsPDF 
-        function generateInvoicePDF(customerRow) {
+        function generateInvoicePDF(customer) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            
-            const [id, name, address, date, phone, status] = customerRow;
 
-            // Invoice Header Design
-            doc.setFillColor(15, 34, 56); // --navy-900
+            // Invoice Header Design Layout
+            doc.setFillColor(15, 34, 56);
             doc.rect(0, 0, 210, 40, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFont("Helvetica", "bold");
@@ -374,47 +412,46 @@
             doc.setFont("Helvetica", "normal");
             doc.text("IT Solutions & Software Deployments", 15, 32);
 
-            // Document Identification Block
-            doc.setTextColor(23, 26, 31); // --ink-900
+            // Document Metadata
+            doc.setTextColor(23, 26, 31);
             doc.setFontSize(14);
             doc.setFont("Helvetica", "bold");
             doc.text("TAX INVOICE / STATEMENT", 15, 55);
             
             doc.setFontSize(10);
             doc.setFont("Helvetica", "normal");
-            doc.text(`Invoice ID: INV-${id}-${date.replace(/-/g,'')}`, 15, 63);
-            doc.text(`Date of Issue: ${date}`, 15, 69);
+            doc.text(`Invoice ID: INV-${customer.id}-${customer.date.replace(/-/g,'')}`, 15, 63);
+            doc.text(`Date of Issue: ${customer.date}`, 15, 69);
 
-            // Customer Identity Box
+            // Customer Details Block
             doc.setFont("Helvetica", "bold");
             doc.text("Billed To:", 15, 82);
             doc.setFont("Helvetica", "normal");
-            doc.text(`Client Name: ${name}`, 15, 88);
-            doc.text(`Contact: ${phone}`, 15, 94);
-            doc.text(`Address: ${address}`, 15, 100);
+            doc.text(`Client Name: ${customer.name}`, 15, 88);
+            doc.text(`Contact: ${customer.phone}`, 15, 94);
+            doc.text(`Address: ${customer.address}`, 15, 100);
 
-            // Invoice Breakdown Table Configuration
-            const tableColumns = ["Description of Project Deployment", "Status", "Total Paid (INR)"];
+            // Table Grid Setup
+            const tableColumns = ["Description of Project Deployment", "Status", "Total Status"];
             const tableRows = [
-                ["QuickBill Core Installation & License Deployment", status, status === "Paid" ? "Calculated/Paid" : "Pending"]
+                ["QuickBill Core Installation & License Deployment", customer.status, customer.status === "Paid" ? "Completed" : "Pending Balance"]
             ];
 
             doc.autoTable({
                 startY: 110,
                 head: [tableColumns],
                 body: tableRows,
-                headStyles: { fillColor: [44, 85, 130] }, // --navy-500
+                headStyles: { fillColor: [44, 85, 130] },
                 theme: 'grid'
             });
 
-            // Terms Footer 
             const finalY = doc.lastAutoTable.finalY + 20;
             doc.setFontSize(9);
             doc.setFont("Helvetica", "italic");
             doc.text("Thank you for choosing Opportunities Software. Generated securely via QuickBill core client.", 15, finalY);
 
-            // Trigger immediate local hardware save routine
-            doc.save(`QuickBill_Invoice_${id}.pdf`);
+            // Instantly download PDF target sheet to device file-system logs
+            doc.save(`QuickBill_Invoice_${customer.id}.pdf`);
         }
     </script>
 </body>
