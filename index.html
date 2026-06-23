@@ -28,12 +28,12 @@
         
         .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
         .media-card { background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .media-card iframe, .media-card img { width: 100%; height: 200px; object-fit: cover; border-radius: 4px; border: none; }
+        .media-card iframe, .media-card img, .media-card video { width: 100%; height: 200px; object-fit: cover; border-radius: 4px; border: none; }
         
         .admin-grid { display: grid; grid-template-columns: 1fr 2.2fr; gap: 1.5rem; margin-top: 2rem; }
         form { background: white; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 1rem; }
-        form h5 { margin-top: 0.5rem; margin-bottom: -0.25rem; color: var(--navy-700); font-size: 0.9rem; }
-        form input, form select, form textarea { padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; width: 100%; }
+        form h5 { margin-top: 0.4rem; margin-bottom: -0.4rem; color: var(--navy-700); font-size: 0.95rem; font-weight: bold; }
+        form input, form select, form textarea { padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; width: 100%; font-size: 0.9rem; }
         form button, .btn { background-color: var(--navy-700); color: white; padding: 0.6rem 1rem; border: none; border-radius: 4px; cursor: pointer; }
         form button:hover, .btn:hover { background-color: var(--navy-500); }
         
@@ -94,18 +94,18 @@
                     <div class="admin-grid">
                         <form id="customerForm" onsubmit="appendRow(event, 'Customers')">
                             <h4>Onboard New Customer</h4>
-                            <h5>Customer ID</h5>
+                            <h5>Customer Unique ID</h5>
                             <input type="text" placeholder="e.g. C101" required id="c_id">
                             <h5>Shop Name</h5>
                             <input type="text" placeholder="Enter Business / Shop Name" required id="c_name">
-                            <h5>Site Address</h5>
-                            <input type="text" placeholder="Installation Site Address" required id="c_addr">
-                            <h5>Installation Date</h5>
+                            <h5>Installation Site Address</h5>
+                            <input type="text" placeholder="Complete Location Address" required id="c_addr">
+                            <h5>Installed Date</h5>
                             <input type="date" required id="c_date">
-                            <h5>Mobile Number</h5>
-                            <input type="tel" placeholder="Mobile Contact Number" required id="c_phone">
-                            <h5>Total Amount</h5>
-                            <input type="number" placeholder="Installation Charges Amount (INR)" required id="c_amount">
+                            <h5>Mobile Contact Number</h5>
+                            <input type="tel" placeholder="Customer Phone Number" required id="c_phone">
+                            <h5>Installation Charges Amount</h5>
+                            <input type="number" placeholder="Total Fees Amount (INR)" required id="c_amount">
                             <h5>Payment Status</h5>
                             <select id="c_status">
                                 <option value="Paid">Paid</option>
@@ -135,9 +135,9 @@
                             <select id="m_id" required>
                                 <option value="">-- Select Suggestion (ID - Shop Name) --</option>
                             </select>
-                            <h5>Cycle Year</h5>
-                            <input type="number" placeholder="Billing Year (e.g. 2026)" required id="m_year">
-                            <h5>Maintenance Fee</h5>
+                            <h5>Cycle Billing Year</h5>
+                            <input type="number" placeholder="e.g. 2026" required id="m_year">
+                            <h5>Maintenance Charges Amount</h5>
                             <input type="number" placeholder="Charges Amount (INR)" required id="m_amount">
                             <h5>Payment Status</h5>
                             <select id="m_status">
@@ -162,26 +162,30 @@
                     <div class="admin-grid">
                         <form id="contentForm" onsubmit="appendRow(event, 'Content')">
                             <h4>Publish Showcase Entry</h4>
-                            <h5>Asset Code / ID</h5>
-                            <input type="text" placeholder="e.g. V101" required id="pub_id">
-                            <h5>Showcase Asset Type</h5>
-                            <select id="pub_type" onchange="toggleContentSource(this.value)">
-                                <option value="video">Video URL (YouTube Embed Link)</option>
-                                <option value="photo">Direct Image Upload (Select File)</option>
-                            </select>
-                            <h5>Asset Header Title</h5>
-                            <input type="text" placeholder="Feature Title" required id="pub_title">
-                            <h5>Detailed Feature Description</h5>
-                            <textarea placeholder="Technical Feature Description" rows="4" required id="pub_desc"></textarea>
+                            <h5>Asset Reference ID</h5>
+                            <input type="text" placeholder="e.g. M101" required id="pub_id">
                             
-                            <div id="videoSourceGroup">
-                                <h5>YouTube Resource URL</h5>
-                                <input type="url" placeholder="https://www.youtube.com/watch?v=..." id="pub_url">
+                            <h5>Showcase File / Resource Heading</h5>
+                            <select id="pub_type" onchange="toggleContentSource(this.value)">
+                                <option value="photo">Upload Image File (From Computer)</option>
+                                <option value="video">Upload Video File (From Computer)</option>
+                                <option value="youtube">Link YouTube Video URL</option>
+                            </select>
+                            
+                            <h5>Asset Interface Title</h5>
+                            <input type="text" placeholder="Feature Display Title" required id="pub_title">
+                            
+                            <h5>Feature Content Description</h5>
+                            <textarea placeholder="Technical System Feature Description" rows="4" required id="pub_desc"></textarea>
+                            
+                            <div id="fileUploadGroup">
+                                <h5>Choose Local File from Computer</h5>
+                                <input type="file" id="pub_file" accept="image/*,video/*">
                             </div>
 
-                            <div id="photoSourceGroup" style="display: none;">
-                                <h5>Select Local Image File</h5>
-                                <input type="file" accept="image/*" id="pub_file">
+                            <div id="youtubeUrlGroup" style="display: none;">
+                                <h5>YouTube Resource Web URL</h5>
+                                <input type="url" placeholder="https://www.youtube.com/watch?v=..." id="pub_url">
                             </div>
 
                             <button type="submit" style="margin-top: 0.5rem;">Publish to Landing Page</button>
@@ -190,7 +194,7 @@
                             <h4>Active Media Grid Metadata</h4>
                             <div class="table-container">
                                 <table id="contentTable">
-                                    <thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Description</th><th>Actions</th></tr></thead>
+                                    <thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Actions</th></tr></thead>
                                     <tbody></tbody>
                                 </table>
                             </div>
@@ -217,23 +221,28 @@
             renderPublicGallery();
         });
 
-        // Toggles input type fields based on chosen media element block
+        // Configures form source inputs based on header select option type choosing logic
         function toggleContentSource(type) {
-            const vGroup = document.getElementById('videoSourceGroup');
-            const pGroup = document.getElementById('photoSourceGroup');
-            const urlInput = document.getElementById('pub_url');
+            const fileGroup = document.getElementById('fileUploadGroup');
+            const ytGroup = document.getElementById('youtubeUrlGroup');
             const fileInput = document.getElementById('pub_file');
+            const urlInput = document.getElementById('pub_url');
 
-            if(type === 'video') {
-                vGroup.style.display = "block";
-                pGroup.style.display = "none";
-                urlInput.required = true;
+            if(type === 'youtube') {
+                fileGroup.style.display = "none";
+                ytGroup.style.display = "block";
                 fileInput.required = false;
+                urlInput.required = true;
+                fileInput.value = ""; 
             } else {
-                vGroup.style.display = "none";
-                pGroup.style.display = "block";
-                urlInput.required = false;
+                fileGroup.style.display = "block";
+                ytGroup.style.display = "none";
                 fileInput.required = true;
+                urlInput.required = false;
+                urlInput.value = "";
+                
+                // Fine-tune browser file filters dynamically
+                fileInput.accept = type === 'photo' ? "image/*" : "video/*";
             }
         }
 
@@ -440,7 +449,6 @@
                     <td>${item.id}</td>
                     <td>${item.type}</td>
                     <td>${item.title}</td>
-                    <td>${item.desc.substring(0, 40)}...</td>
                     <td><button class="btn-action btn-del" onclick="deleteRow('Content', ${index})">Del</button></td>
                 `;
                 contentBody.appendChild(tr);
@@ -452,17 +460,19 @@
             gallery.innerHTML = '';
 
             if (localDatabaseState.Content.length === 0) {
-                gallery.innerHTML = `<p>No promotional media modules initialized in the client database yet.</p>`;
+                gallery.innerHTML = `<p>No showcase media assets uploaded yet. Log into the admin panel to populate items.</p>`;
                 return;
             }
 
             localDatabaseState.Content.forEach(item => {
                 let mediaHtml = '';
-                if (item.type === 'video') {
+                if (item.type === 'youtube') {
                     const embedUrl = item.url.replace("watch?v=", "embed/");
                     mediaHtml = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
+                } else if (item.type === 'video') {
+                    mediaHtml = `<video src="${item.url}" controls></video>`;
                 } else {
-                    mediaHtml = `<img src="${item.url}" alt="QuickBill Graphic Asset">`;
+                    mediaHtml = `<img src="${item.url}" alt="QuickBill Showcase Asset">`;
                 }
 
                 gallery.innerHTML += `
@@ -475,7 +485,6 @@
             });
         }
 
-        // Helper tool reading local files to render raw string data segments
         function readFileAsBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -510,20 +519,19 @@
                 const type = document.getElementById('pub_type').value;
                 let finalMediaUrl = "";
 
-                if(type === 'video') {
+                if(type === 'youtube') {
                     finalMediaUrl = document.getElementById('pub_url').value;
                 } else {
                     const fileInput = document.getElementById('pub_file');
                     if(fileInput.files.length > 0) {
                         try {
-                            // Converts your selected image to a portable string block
                             finalMediaUrl = await readFileAsBase64(fileInput.files[0]);
                         } catch (err) {
-                            alert("Failed to parse local image layout payload.");
+                            alert("Failed to compile local system file into upload stream.");
                             return;
                         }
                     } else {
-                        alert("Please pick a file to upload.");
+                        alert("Please select a file from your computer.");
                         return;
                     }
                 }
@@ -542,8 +550,7 @@
             saveDatabaseToDrive().then(() => {
                 alert(`Entry successfully committed directly to your personal Google Drive database!`);
                 event.target.reset();
-                // Ensure form state default triggers correctly
-                if(targetArray === 'Content') toggleContentSource('video');
+                if(targetArray === 'Content') toggleContentSource('photo');
                 renderAdminTables();
                 if (targetArray === 'Content') renderPublicGallery();
             }).catch(err => alert('Failed to sync internal state definitions with Google Cloud storage.'));
