@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>QuickBill – Opportunities Software</title>
     
-   <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     
     <script src="config.js"></script>
+
     <style>
         :root {
             --navy-900: #0f2238; --navy-700: #1c3a5c; --navy-500: #2c5582;
@@ -69,14 +70,14 @@
             <h2>Explore QuickBill Projects & Systems</h2>
             <p>Take a look at descriptions, snapshots, and walkthrough guides of our features.</p>
             <div id="publicGallery" class="gallery-grid">
-                <p>Please sign into the admin panel to populate or sync your Google Drive content portfolio.</p>
+                <p>Please log into the admin dashboard to initialize or sync your personal project showcase database portfolio.</p>
             </div>
         </section>
 
         <section id="adminView" class="view-section">
             <div id="authContainer" style="text-align: center; margin-top: 5rem;">
                 <h3>Administrator Access Authentication</h3>
-                <p style="margin-bottom: 1.5rem;">Sign-in using an authorized Google account to manage your personal database.</p>
+                <p style="margin-bottom: 1.5rem;">Sign-in using an authorized Google account to securely parse your private database configuration.</p>
                 <button class="btn" onclick="handleAuthClick()">Sign In with Google</button>
             </div>
 
@@ -176,14 +177,14 @@
         let accessToken = null;
         let databaseFileId = null;
 
-        // Local structure mimicking data sheets inside the active runtime configuration state
+        // Structured initial layout mirroring JSON tables
         let localDatabaseState = {
             Content: [],
             Customers: [],
             Maintenance: []
         };
 
-        // Toggle navigation view between Admin and Public spaces
+        // Navigation tab layouts switching view
         function toggleAdminView() {
             const pubView = document.getElementById('publicView');
             const admView = document.getElementById('adminView');
@@ -200,7 +201,6 @@
             }
         }
 
-        // Sub-navigation dashboard interface tab handler
         function switchAdminTab(tabId, element) {
             document.querySelectorAll('.admin-tab-content').forEach(tab => tab.style.display = 'none');
             document.querySelectorAll('.tab-link').forEach(link => link.classList.remove('active'));
@@ -208,7 +208,7 @@
             element.classList.add('active');
         }
 
-        // Google Authentication Framework initialization using the local configurations file
+        // Secure Login flow using Identity Service tokens
         function handleAuthClick() {
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: GOOGLE_CLIENT_ID,
@@ -226,7 +226,7 @@
             tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
-        // Locate database JSON file inside user's Drive or instantiate a template schema if new
+        // Scans Drive for the standard JSON schema file, builds configuration if absent
         async function initializeUserDatabase() {
             try {
                 const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}' and trashed=false`, {
@@ -244,12 +244,11 @@
                 renderAdminTables();
                 renderPublicGallery(); 
             } catch (err) {
-                console.error("Error connecting to Google Drive storage layer:", err);
+                console.error("Storage Initialization Failure:", err);
                 alert("Could not pull or initialize the database layout file from Google Drive.");
             }
         }
 
-        // Download JSON binary streams from active accounts file mappings
         async function downloadDatabaseFile() {
             const response = await fetch(`https://www.googleapis.com/drive/v3/files/${databaseFileId}?alt=media`, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -257,13 +256,23 @@
             localDatabaseState = await response.json();
         }
 
-        // Multi-part form stream execution used to patch and modify storage allocations
+        // Writes updates by converting JSON values into browser safe data transport states
         async function saveDatabaseToDrive() {
+            const boundary = '314159265358979323846';
+            const delimiter = `\r\n--${boundary}\r\n`;
+            const close_delim = `\r\n--${boundary}--`;
+
             const metadata = { name: DRIVE_FILE_NAME, mimeType: "application/json" };
-            
-            const form = new FormData();
-            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-            form.append('file', new Blob([JSON.stringify(localDatabaseState)], { type: 'application/json' }));
+            const dataString = JSON.stringify(localDatabaseState);
+
+            let multipartRequestBody =
+                delimiter +
+                'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+                JSON.stringify(metadata) +
+                delimiter +
+                'Content-Type: application/json\r\n\r\n' +
+                dataString +
+                close_delim;
 
             const url = databaseFileId 
                 ? `https://www.googleapis.com/upload/drive/v3/files/${databaseFileId}?uploadType=multipart`
@@ -273,17 +282,19 @@
 
             const response = await fetch(url, {
                 method: method,
-                headers: { 'Authorization': `Bearer ${accessToken}` },
-                body: form
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': `multipart/related; boundary=${boundary}`
+                },
+                body: multipartRequestBody
             });
-            
+
             if (!databaseFileId) {
                 const resData = await response.json();
                 databaseFileId = resData.id;
             }
         }
 
-        // Render functions processing internal structured JSON state modifications directly into tables
         function renderAdminTables() {
             const customerBody = document.getElementById('customersTable').getElementsByTagName('tbody')[0];
             customerBody.innerHTML = '';
@@ -356,7 +367,6 @@
             });
         }
 
-        // Push form parameters onto local object configurations state and write execution to Google Drive
         function appendRow(event, targetArray) {
             event.preventDefault();
             let newEntry = {};
@@ -397,12 +407,11 @@
             }).catch(err => alert('Failed to sync internal state definitions with Google Cloud storage.'));
         }
 
-        // Standalone Client-Side Invoice Engine using jsPDF 
+        // Generates dynamic invoice layout maps using client browser libraries
         function generateInvoicePDF(customer) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
 
-            // Invoice Header Design Layout
             doc.setFillColor(15, 34, 56);
             doc.rect(0, 0, 210, 40, 'F');
             doc.setTextColor(255, 255, 255);
@@ -414,7 +423,6 @@
             doc.setFont("Helvetica", "normal");
             doc.text("IT Solutions & Software Deployments", 15, 32);
 
-            // Document Metadata
             doc.setTextColor(23, 26, 31);
             doc.setFontSize(14);
             doc.setFont("Helvetica", "bold");
@@ -425,7 +433,6 @@
             doc.text(`Invoice ID: INV-${customer.id}-${customer.date.replace(/-/g,'')}`, 15, 63);
             doc.text(`Date of Issue: ${customer.date}`, 15, 69);
 
-            // Customer Details Block
             doc.setFont("Helvetica", "bold");
             doc.text("Billed To:", 15, 82);
             doc.setFont("Helvetica", "normal");
@@ -433,7 +440,6 @@
             doc.text(`Contact: ${customer.phone}`, 15, 94);
             doc.text(`Address: ${customer.address}`, 15, 100);
 
-            // Table Grid Setup
             const tableColumns = ["Description of Project Deployment", "Status", "Total Status"];
             const tableRows = [
                 ["QuickBill Core Installation & License Deployment", customer.status, customer.status === "Paid" ? "Completed" : "Pending Balance"]
@@ -452,7 +458,6 @@
             doc.setFont("Helvetica", "italic");
             doc.text("Thank you for choosing Opportunities Software. Generated securely via QuickBill core client.", 15, finalY);
 
-            // Instantly download PDF target sheet to device file-system logs
             doc.save(`QuickBill_Invoice_${customer.id}.pdf`);
         }
     </script>
