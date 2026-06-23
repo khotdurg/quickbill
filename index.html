@@ -94,7 +94,7 @@
                         <form id="customerForm" onsubmit="appendRow(event, 'Customers')">
                             <h4>Onboard New Customer</h4>
                             <input type="text" placeholder="Customer Unique ID (e.g. C101)" required id="c_id">
-                            <input type="text" placeholder="Full Name" required id="c_name">
+                            <input type="text" placeholder="Shop Name" required id="c_name">
                             <input type="text" placeholder="Installation Site Address" required id="c_addr">
                             <input type="date" required id="c_date">
                             <input type="tel" placeholder="Mobile Contact Number" required id="c_phone">
@@ -110,7 +110,7 @@
                             <div class="table-container">
                                 <table id="customersTable">
                                     <thead>
-                                        <tr><th>ID</th><th>Name</th><th>Address</th><th>Date</th><th>Mobile</th><th>Amount</th><th>Status</th><th>Actions</th></tr>
+                                        <tr><th>ID</th><th>Shop Name</th><th>Address</th><th>Date</th><th>Mobile</th><th>Amount</th><th>Status</th><th>Actions</th></tr>
                                     </thead>
                                     <tbody></tbody>
                                 </table>
@@ -123,7 +123,9 @@
                     <div class="admin-grid">
                         <form id="maintenanceForm" onsubmit="appendRow(event, 'Maintenance')">
                             <h4>Log Maintenance Cycle</h4>
-                            <input type="text" placeholder="Customer ID Link" required id="m_id">
+                            <select id="m_id" required>
+                                <option value="">-- Select Customer ID & Shop --</option>
+                            </select>
                             <input type="number" placeholder="Billing Year (e.g. 2026)" required id="m_year">
                             <input type="number" placeholder="Charges Amount (INR)" required id="m_amount">
                             <select id="m_status">
@@ -136,7 +138,7 @@
                             <h4>Recurring Accounts Ledger</h4>
                             <div class="table-container">
                                 <table id="maintenanceTable">
-                                    <thead><tr><th>Customer ID</th><th>Year</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+                                    <thead><tr><th>Customer ID</th><th>Shop Name</th><th>Year</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
                                     <tbody></tbody>
                                 </table>
                             </div>
@@ -184,10 +186,6 @@
             Customers: [],
             Maintenance: []
         };
-
-        window.addEventListener('DOMContentLoaded', () => {
-            renderPublicGallery();
-        });
 
         function toggleAdminView() {
             const pubView = document.getElementById('publicView');
@@ -309,7 +307,6 @@
             }
         }
 
-        // --- CRUD UPDATE OPERATIONS (Toggling Paid Status) ---
         function toggleStatus(targetArray, index) {
             let currentStatus = localDatabaseState[targetArray][index].status;
             localDatabaseState[targetArray][index].status = currentStatus === 'Paid' ? 'Not Paid' : 'Paid';
@@ -319,7 +316,6 @@
             });
         }
 
-        // --- CRUD DELETE OPERATIONS ---
         function deleteRow(targetArray, index) {
             if(confirm("Are you sure you want to delete this record?")) {
                 localDatabaseState[targetArray].splice(index, 1);
@@ -330,8 +326,24 @@
             }
         }
 
+        // Dynamically populates the Maintenance dropdown list using existing Customer IDs & Names
+        function refreshMaintenanceSuggestions() {
+            const selectEl = document.getElementById('m_id');
+            selectEl.innerHTML = '<option value="">-- Select Customer ID & Shop --</option>';
+            
+            localDatabaseState.Customers.forEach(customer => {
+                let opt = document.createElement('option');
+                opt.value = customer.id;
+                opt.innerText = `${customer.id} - ${customer.name}`;
+                selectEl.appendChild(opt);
+            });
+        }
+
         function renderAdminTables() {
-            // Customer Table Setup
+            // Update the suggestion options array
+            refreshMaintenanceSuggestions();
+
+            // Customer Table Grid
             const customerBody = document.getElementById('customersTable').getElementsByTagName('tbody')[0];
             customerBody.innerHTML = '';
             localDatabaseState.Customers.forEach((customer, index) => {
@@ -345,29 +357,37 @@
                     <td>${customer.amount || '0'}</td>
                     <td><span class="badge ${customer.status === 'Paid' ? 'paid' : 'unpaid'}" onclick="toggleStatus('Customers', ${index})">${customer.status}</span></td>
                     <td>
-                        <button class="btn-action btn-pdf" onclick='generateInvoicePDF(${JSON.stringify(customer)})'>PDF</button>
+                        <button class="btn-action btn-pdf" onclick='generateInvoicePDF("Installation", ${JSON.stringify(customer)})'>PDF</button>
                         <button class="btn-action btn-del" onclick="deleteRow('Customers', ${index})">Del</button>
                     </td>
                 `;
                 customerBody.appendChild(tr);
             });
 
-            // Maintenance Table Setup
+            // Maintenance Table Grid
             const maintenanceBody = document.getElementById('maintenanceTable').getElementsByTagName('tbody')[0];
             maintenanceBody.innerHTML = '';
             localDatabaseState.Maintenance.forEach((item, index) => {
+                // Look up matching shop name based on customer configuration mappings
+                const matchedCustomer = localDatabaseState.Customers.find(c => c.id === item.id);
+                const shopName = matchedCustomer ? matchedCustomer.name : "Unknown Shop";
+
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${item.id}</td>
+                    <td>${shopName}</td>
                     <td>${item.year}</td>
                     <td>${item.amount}</td>
                     <td><span class="badge ${item.status === 'Paid' ? 'paid' : 'unpaid'}" onclick="toggleStatus('Maintenance', ${index})">${item.status}</span></td>
-                    <td><button class="btn-action btn-del" onclick="deleteRow('Maintenance', ${index})">Del</button></td>
+                    <td>
+                        <button class="btn-action btn-pdf" onclick='generateInvoicePDF("Maintenance", ${JSON.stringify(item)})'>PDF</button>
+                        <button class="btn-action btn-del" onclick="deleteRow('Maintenance', ${index})">Del</button>
+                    </td>
                 `;
                 maintenanceBody.appendChild(tr);
             });
 
-            // Content Showcase Setup
+            // Content Table Grid
             const contentBody = document.getElementById('contentTable').getElementsByTagName('tbody')[0];
             contentBody.innerHTML = '';
             localDatabaseState.Content.forEach((item, index) => {
@@ -452,10 +472,32 @@
             }).catch(err => alert('Failed to sync internal state definitions with Google Cloud storage.'));
         }
 
-        function generateInvoicePDF(customer) {
+        // Standardized Client-Side Invoice Engine capable of parsing core fields across views dynamically
+        function generateInvoicePDF(billType, dataObject) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
 
+            let customerId = dataObject.id;
+            let amount = dataObject.amount || '0';
+            let status = dataObject.status;
+            let billingDescription = "";
+            let issueDate = "";
+
+            // Dynamic lookups parsing object parameters securely based on billing type context
+            let matchedCustomer = localDatabaseState.Customers.find(c => c.id === customerId);
+            if (billType === "Maintenance") {
+                billingDescription = `Annual Maintenance Contract Charges - Cycle Year ${dataObject.year}`;
+                issueDate = `01-01-${dataObject.year}`;
+            } else {
+                billingDescription = "QuickBill Core Installation & License Deployment Fee";
+                issueDate = dataObject.date;
+            }
+
+            let shopName = matchedCustomer ? matchedCustomer.name : "Unknown Client Shop";
+            let shopAddress = matchedCustomer ? matchedCustomer.address : "N/A";
+            let contactPhone = matchedCustomer ? matchedCustomer.phone : "N/A";
+
+            // Visual Invoice Banner Render
             doc.setFillColor(15, 34, 56);
             doc.rect(0, 0, 210, 40, 'F');
             doc.setTextColor(255, 255, 255);
@@ -474,19 +516,19 @@
             
             doc.setFontSize(10);
             doc.setFont("Helvetica", "normal");
-            doc.text(`Invoice ID: INV-${customer.id}-${customer.date.replace(/-/g,'')}`, 15, 63);
-            doc.text(`Date of Issue: ${customer.date}`, 15, 69);
+            doc.text(`Invoice ID: INV-${customerId}-${issueDate.replace(/-/g,'')}`, 15, 63);
+            doc.text(`Date of Issue: ${issueDate}`, 15, 69);
 
             doc.setFont("Helvetica", "bold");
             doc.text("Billed To:", 15, 82);
             doc.setFont("Helvetica", "normal");
-            doc.text(`Client Name: ${customer.name}`, 15, 88);
-            doc.text(`Contact: ${customer.phone}`, 15, 94);
-            doc.text(`Address: ${customer.address}`, 15, 100);
+            doc.text(`Shop Name: ${shopName}`, 15, 88);
+            doc.text(`Contact: ${contactPhone}`, 15, 94);
+            doc.text(`Address: ${shopAddress}`, 15, 100);
 
-            const tableColumns = ["Description of Project Deployment", "Status", "Total Amount (INR)"];
+            const tableColumns = ["Description of Project Deployment", "Payment Status", "Total Amount (INR)"];
             const tableRows = [
-                ["QuickBill Core Installation & License Deployment", customer.status, customer.amount || '0']
+                [billingDescription, status, amount]
             ];
 
             doc.autoTable({
@@ -502,7 +544,7 @@
             doc.setFont("Helvetica", "italic");
             doc.text("Thank you for choosing Opportunities Software. Generated securely via QuickBill core client.", 15, finalY);
 
-            doc.save(`QuickBill_Invoice_${customer.id}.pdf`);
+            doc.save(`QuickBill_Invoice_${customerId}.pdf`);
         }
     </script>
 </body>
