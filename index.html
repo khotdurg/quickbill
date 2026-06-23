@@ -124,7 +124,7 @@
                         <form id="maintenanceForm" onsubmit="appendRow(event, 'Maintenance')">
                             <h4>Log Maintenance Cycle</h4>
                             <select id="m_id" required>
-                                <option value="">-- Select Customer ID & Shop --</option>
+                                <option value="">-- Select Suggestion (ID - Shop Name) --</option>
                             </select>
                             <input type="number" placeholder="Billing Year (e.g. 2026)" required id="m_year">
                             <input type="number" placeholder="Charges Amount (INR)" required id="m_amount">
@@ -186,6 +186,10 @@
             Customers: [],
             Maintenance: []
         };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderPublicGallery();
+        });
 
         function toggleAdminView() {
             const pubView = document.getElementById('publicView');
@@ -326,24 +330,24 @@
             }
         }
 
-        // Dynamically populates the Maintenance dropdown list using existing Customer IDs & Names
-        function refreshMaintenanceSuggestions() {
-            const selectEl = document.getElementById('m_id');
-            selectEl.innerHTML = '<option value="">-- Select Customer ID & Shop --</option>';
+        // Dynamically populates maintenance input select items from customer matrix
+        function updateMaintenanceSuggestions() {
+            const selectDropdown = document.getElementById('m_id');
+            selectDropdown.innerHTML = '<option value="">-- Select Suggestion (ID - Shop Name) --</option>';
             
             localDatabaseState.Customers.forEach(customer => {
-                let opt = document.createElement('option');
-                opt.value = customer.id;
-                opt.innerText = `${customer.id} - ${customer.name}`;
-                selectEl.appendChild(opt);
+                let option = document.createElement('option');
+                option.value = customer.id;
+                option.innerText = `${customer.id} - ${customer.name}`;
+                selectDropdown.appendChild(option);
             });
         }
 
         function renderAdminTables() {
-            // Update the suggestion options array
-            refreshMaintenanceSuggestions();
+            // Update suggestions first
+            updateMaintenanceSuggestions();
 
-            // Customer Table Grid
+            // Customer roll UI builder
             const customerBody = document.getElementById('customersTable').getElementsByTagName('tbody')[0];
             customerBody.innerHTML = '';
             localDatabaseState.Customers.forEach((customer, index) => {
@@ -364,11 +368,11 @@
                 customerBody.appendChild(tr);
             });
 
-            // Maintenance Table Grid
+            // Maintenance list UI builder
             const maintenanceBody = document.getElementById('maintenanceTable').getElementsByTagName('tbody')[0];
             maintenanceBody.innerHTML = '';
             localDatabaseState.Maintenance.forEach((item, index) => {
-                // Look up matching shop name based on customer configuration mappings
+                // Fetch dynamic shop matching name
                 const matchedCustomer = localDatabaseState.Customers.find(c => c.id === item.id);
                 const shopName = matchedCustomer ? matchedCustomer.name : "Unknown Shop";
 
@@ -387,7 +391,7 @@
                 maintenanceBody.appendChild(tr);
             });
 
-            // Content Table Grid
+            // Showcase list UI builder
             const contentBody = document.getElementById('contentTable').getElementsByTagName('tbody')[0];
             contentBody.innerHTML = '';
             localDatabaseState.Content.forEach((item, index) => {
@@ -408,7 +412,7 @@
             gallery.innerHTML = '';
 
             if (localDatabaseState.Content.length === 0) {
-                gallery.innerHTML = `<p>No promotional media modules synchronized yet. Please log into the admin panel to populate or verify cloud data files.</p>`;
+                gallery.innerHTML = `<p>No promotional media modules initialized in the client database yet.</p>`;
                 return;
             }
 
@@ -472,7 +476,6 @@
             }).catch(err => alert('Failed to sync internal state definitions with Google Cloud storage.'));
         }
 
-        // Standardized Client-Side Invoice Engine capable of parsing core fields across views dynamically
         function generateInvoicePDF(billType, dataObject) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -483,7 +486,6 @@
             let billingDescription = "";
             let issueDate = "";
 
-            // Dynamic lookups parsing object parameters securely based on billing type context
             let matchedCustomer = localDatabaseState.Customers.find(c => c.id === customerId);
             if (billType === "Maintenance") {
                 billingDescription = `Annual Maintenance Contract Charges - Cycle Year ${dataObject.year}`;
@@ -497,7 +499,7 @@
             let shopAddress = matchedCustomer ? matchedCustomer.address : "N/A";
             let contactPhone = matchedCustomer ? matchedCustomer.phone : "N/A";
 
-            // Visual Invoice Banner Render
+            // Visual Invoice Document Header
             doc.setFillColor(15, 34, 56);
             doc.rect(0, 0, 210, 40, 'F');
             doc.setTextColor(255, 255, 255);
@@ -522,9 +524,9 @@
             doc.setFont("Helvetica", "bold");
             doc.text("Billed To:", 15, 82);
             doc.setFont("Helvetica", "normal");
-            doc.text(`Shop Name: ${shopName}`, 15, 88);
-            doc.text(`Contact: ${contactPhone}`, 15, 94);
-            doc.text(`Address: ${shopAddress}`, 15, 100);
+            doc.text("Shop Name: " + shopName, 15, 88);
+            doc.text("Contact: " + contactPhone, 15, 94);
+            doc.text("Address: " + shopAddress, 15, 100);
 
             const tableColumns = ["Description of Project Deployment", "Payment Status", "Total Amount (INR)"];
             const tableRows = [
