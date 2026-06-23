@@ -5,14 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>QuickBill – Opportunities Software</title>
     
-    <!-- Google Identity Services client script -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
-    <!-- jsPDF and AutoTable for Client-Side PDF Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     
-    <!-- Configuration Variables -->
     <script src="config.js"></script>
 
     <style>
@@ -66,16 +63,14 @@
 
     <div class="container">
         
-        <!-- PUBLIC VIEW SECTION -->
         <section id="publicView" class="view-section active">
             <h2>Explore QuickBill Projects & Systems</h2>
             <p>Take a look at descriptions, snapshots, and walkthrough guides of our features.</p>
             <div id="publicGallery" class="gallery-grid">
-                <p>Please log into the admin dashboard to initialize or sync your personal project showcase database portfolio.</p>
+                <p>Loading showcase modules from database...</p>
             </div>
         </section>
 
-        <!-- ADMIN INTERFACE VIEW SECTION -->
         <section id="adminView" class="view-section">
             <div id="authContainer" style="text-align: center; margin-top: 5rem;">
                 <h3>Administrator Access Authentication</h3>
@@ -90,7 +85,6 @@
                     <button class="tab-link" onclick="switchAdminTab('contentTab', this)">Showcase Content Manager</button>
                 </div>
 
-                <!-- SUB TAB: CUSTOMER MATRIX -->
                 <div id="customersTab" class="admin-tab-content" style="display: block;">
                     <div class="admin-grid">
                         <form id="customerForm" onsubmit="appendRow(event, 'Customers')">
@@ -100,6 +94,7 @@
                             <input type="text" placeholder="Installation Site Address" required id="c_addr">
                             <input type="date" required id="c_date">
                             <input type="tel" placeholder="Mobile Contact Number" required id="c_phone">
+                            <input type="number" placeholder="Installation Charges Amount (INR)" required id="c_amount">
                             <select id="c_status">
                                 <option value="Paid">Paid</option>
                                 <option value="Not Paid">Not Paid</option>
@@ -111,7 +106,7 @@
                             <div class="table-container">
                                 <table id="customersTable">
                                     <thead>
-                                        <tr><th>ID</th><th>Name</th><th>Address</th><th>Date</th><th>Mobile</th><th>Status</th><th>Billing</th></tr>
+                                        <tr><th>ID</th><th>Name</th><th>Address</th><th>Date</th><th>Mobile</th><th>Amount</th><th>Status</th><th>Billing</th></tr>
                                     </thead>
                                     <tbody></tbody>
                                 </table>
@@ -120,7 +115,6 @@
                     </div>
                 </div>
 
-                <!-- SUB TAB: ANNUAL MAINTENANCE -->
                 <div id="maintenanceTab" class="admin-tab-content" style="display: none;">
                     <div class="admin-grid">
                         <form id="maintenanceForm" onsubmit="appendRow(event, 'Maintenance')">
@@ -146,7 +140,6 @@
                     </div>
                 </div>
 
-                <!-- SUB TAB: CONTENT MANAGER -->
                 <div id="contentTab" class="admin-tab-content" style="display: none;">
                     <div class="admin-grid">
                         <form id="contentForm" onsubmit="appendRow(event, 'Content')">
@@ -187,6 +180,11 @@
             Customers: [],
             Maintenance: []
         };
+
+        // Load public data safely even if unauthenticated by trying to parse previously loaded items or handling gracefully
+        window.addEventListener('DOMContentLoaded', () => {
+            renderPublicGallery();
+        });
 
         function toggleAdminView() {
             const pubView = document.getElementById('publicView');
@@ -263,7 +261,6 @@
             });
             const data = await response.json();
             
-            // Critical fix: Ensure empty arrays exist if file was blank or malformed
             localDatabaseState = {
                 Content: Array.isArray(data.Content) ? data.Content : [],
                 Customers: Array.isArray(data.Customers) ? data.Customers : [],
@@ -320,6 +317,7 @@
                     <td>${customer.address}</td>
                     <td>${customer.date}</td>
                     <td>${customer.phone}</td>
+                    <td>${customer.amount || '0'}</td>
                     <td><span class="badge ${customer.status === 'Paid' ? 'paid' : 'unpaid'}">${customer.status}</span></td>
                     <td><button class="btn" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick='generateInvoicePDF(${JSON.stringify(customer)})'>Get PDF</button></td>
                 `;
@@ -358,7 +356,7 @@
             gallery.innerHTML = '';
 
             if (localDatabaseState.Content.length === 0) {
-                gallery.innerHTML = `<p>No promotional media modules initialized in the client database yet.</p>`;
+                gallery.innerHTML = `<p>No promotional media modules synchronized yet. Please log into the admin panel to load or verify cloud data files.</p>`;
                 return;
             }
 
@@ -392,6 +390,7 @@
                     address: document.getElementById('c_addr').value,
                     date: document.getElementById('c_date').value,
                     phone: document.getElementById('c_phone').value,
+                    amount: document.getElementById('c_amount').value,
                     status: document.getElementById('c_status').value
                 };
             } else if (targetArray === 'Maintenance') {
@@ -453,9 +452,9 @@
             doc.text(`Contact: ${customer.phone}`, 15, 94);
             doc.text(`Address: ${customer.address}`, 15, 100);
 
-            const tableColumns = ["Description of Project Deployment", "Status", "Total Status"];
+            const tableColumns = ["Description of Project Deployment", "Status", "Total Amount (INR)"];
             const tableRows = [
-                ["QuickBill Core Installation & License Deployment", customer.status, customer.status === "Paid" ? "Completed" : "Pending Balance"]
+                ["QuickBill Core Installation & License Deployment", customer.status, customer.amount || '0']
             ];
 
             doc.autoTable({
