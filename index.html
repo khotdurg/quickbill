@@ -32,6 +32,7 @@
         
         .admin-grid { display: grid; grid-template-columns: 1fr 2.2fr; gap: 1.5rem; margin-top: 2rem; }
         form { background: white; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 1rem; }
+        form h5 { margin-top: 0.5rem; margin-bottom: -0.25rem; color: var(--navy-700); font-size: 0.9rem; }
         form input, form select, form textarea { padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; width: 100%; }
         form button, .btn { background-color: var(--navy-700); color: white; padding: 0.6rem 1rem; border: none; border-radius: 4px; cursor: pointer; }
         form button:hover, .btn:hover { background-color: var(--navy-500); }
@@ -93,12 +94,19 @@
                     <div class="admin-grid">
                         <form id="customerForm" onsubmit="appendRow(event, 'Customers')">
                             <h4>Onboard New Customer</h4>
-                            <input type="text" placeholder="Customer Unique ID (e.g. C101)" required id="c_id">
-                            <input type="text" placeholder="Shop Name" required id="c_name">
+                            <h5>Customer ID</h5>
+                            <input type="text" placeholder="e.g. C101" required id="c_id">
+                            <h5>Shop Name</h5>
+                            <input type="text" placeholder="Enter Business / Shop Name" required id="c_name">
+                            <h5>Site Address</h5>
                             <input type="text" placeholder="Installation Site Address" required id="c_addr">
+                            <h5>Installation Date</h5>
                             <input type="date" required id="c_date">
+                            <h5>Mobile Number</h5>
                             <input type="tel" placeholder="Mobile Contact Number" required id="c_phone">
+                            <h5>Total Amount</h5>
                             <input type="number" placeholder="Installation Charges Amount (INR)" required id="c_amount">
+                            <h5>Payment Status</h5>
                             <select id="c_status">
                                 <option value="Paid">Paid</option>
                                 <option value="Not Paid">Not Paid</option>
@@ -123,11 +131,15 @@
                     <div class="admin-grid">
                         <form id="maintenanceForm" onsubmit="appendRow(event, 'Maintenance')">
                             <h4>Log Maintenance Cycle</h4>
+                            <h5>Select Shop Account</h5>
                             <select id="m_id" required>
                                 <option value="">-- Select Suggestion (ID - Shop Name) --</option>
                             </select>
+                            <h5>Cycle Year</h5>
                             <input type="number" placeholder="Billing Year (e.g. 2026)" required id="m_year">
+                            <h5>Maintenance Fee</h5>
                             <input type="number" placeholder="Charges Amount (INR)" required id="m_amount">
+                            <h5>Payment Status</h5>
                             <select id="m_status">
                                 <option value="Paid">Paid</option>
                                 <option value="Not Paid">Not Paid</option>
@@ -150,15 +162,29 @@
                     <div class="admin-grid">
                         <form id="contentForm" onsubmit="appendRow(event, 'Content')">
                             <h4>Publish Showcase Entry</h4>
-                            <input type="text" placeholder="Item ID" required id="pub_id">
-                            <select id="pub_type">
-                                <option value="video">Video URL (YouTube Embed)</option>
-                                <option value="photo">Direct Image URL</option>
+                            <h5>Asset Code / ID</h5>
+                            <input type="text" placeholder="e.g. V101" required id="pub_id">
+                            <h5>Showcase Asset Type</h5>
+                            <select id="pub_type" onchange="toggleContentSource(this.value)">
+                                <option value="video">Video URL (YouTube Embed Link)</option>
+                                <option value="photo">Direct Image Upload (Select File)</option>
                             </select>
+                            <h5>Asset Header Title</h5>
                             <input type="text" placeholder="Feature Title" required id="pub_title">
+                            <h5>Detailed Feature Description</h5>
                             <textarea placeholder="Technical Feature Description" rows="4" required id="pub_desc"></textarea>
-                            <input type="url" placeholder="Media Asset Address (URL)" required id="pub_url">
-                            <button type="submit">Publish to Landing Page</button>
+                            
+                            <div id="videoSourceGroup">
+                                <h5>YouTube Resource URL</h5>
+                                <input type="url" placeholder="https://www.youtube.com/watch?v=..." id="pub_url">
+                            </div>
+
+                            <div id="photoSourceGroup" style="display: none;">
+                                <h5>Select Local Image File</h5>
+                                <input type="file" accept="image/*" id="pub_file">
+                            </div>
+
+                            <button type="submit" style="margin-top: 0.5rem;">Publish to Landing Page</button>
                         </form>
                         <div>
                             <h4>Active Media Grid Metadata</h4>
@@ -190,6 +216,26 @@
         window.addEventListener('DOMContentLoaded', () => {
             renderPublicGallery();
         });
+
+        // Toggles input type fields based on chosen media element block
+        function toggleContentSource(type) {
+            const vGroup = document.getElementById('videoSourceGroup');
+            const pGroup = document.getElementById('photoSourceGroup');
+            const urlInput = document.getElementById('pub_url');
+            const fileInput = document.getElementById('pub_file');
+
+            if(type === 'video') {
+                vGroup.style.display = "block";
+                pGroup.style.display = "none";
+                urlInput.required = true;
+                fileInput.required = false;
+            } else {
+                vGroup.style.display = "none";
+                pGroup.style.display = "block";
+                urlInput.required = false;
+                fileInput.required = true;
+            }
+        }
 
         function toggleAdminView() {
             const pubView = document.getElementById('publicView');
@@ -330,7 +376,6 @@
             }
         }
 
-        // Dynamically populates maintenance input select items from customer matrix
         function updateMaintenanceSuggestions() {
             const selectDropdown = document.getElementById('m_id');
             selectDropdown.innerHTML = '<option value="">-- Select Suggestion (ID - Shop Name) --</option>';
@@ -344,10 +389,8 @@
         }
 
         function renderAdminTables() {
-            // Update suggestions first
             updateMaintenanceSuggestions();
 
-            // Customer roll UI builder
             const customerBody = document.getElementById('customersTable').getElementsByTagName('tbody')[0];
             customerBody.innerHTML = '';
             localDatabaseState.Customers.forEach((customer, index) => {
@@ -368,11 +411,9 @@
                 customerBody.appendChild(tr);
             });
 
-            // Maintenance list UI builder
             const maintenanceBody = document.getElementById('maintenanceTable').getElementsByTagName('tbody')[0];
             maintenanceBody.innerHTML = '';
             localDatabaseState.Maintenance.forEach((item, index) => {
-                // Fetch dynamic shop matching name
                 const matchedCustomer = localDatabaseState.Customers.find(c => c.id === item.id);
                 const shopName = matchedCustomer ? matchedCustomer.name : "Unknown Shop";
 
@@ -391,7 +432,6 @@
                 maintenanceBody.appendChild(tr);
             });
 
-            // Showcase list UI builder
             const contentBody = document.getElementById('contentTable').getElementsByTagName('tbody')[0];
             contentBody.innerHTML = '';
             localDatabaseState.Content.forEach((item, index) => {
@@ -400,7 +440,7 @@
                     <td>${item.id}</td>
                     <td>${item.type}</td>
                     <td>${item.title}</td>
-                    <td>${item.desc}</td>
+                    <td>${item.desc.substring(0, 40)}...</td>
                     <td><button class="btn-action btn-del" onclick="deleteRow('Content', ${index})">Del</button></td>
                 `;
                 contentBody.appendChild(tr);
@@ -435,7 +475,17 @@
             });
         }
 
-        function appendRow(event, targetArray) {
+        // Helper tool reading local files to render raw string data segments
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = (error) => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function appendRow(event, targetArray) {
             event.preventDefault();
             let newEntry = {};
             
@@ -457,12 +507,33 @@
                     status: document.getElementById('m_status').value
                 };
             } else if (targetArray === 'Content') {
+                const type = document.getElementById('pub_type').value;
+                let finalMediaUrl = "";
+
+                if(type === 'video') {
+                    finalMediaUrl = document.getElementById('pub_url').value;
+                } else {
+                    const fileInput = document.getElementById('pub_file');
+                    if(fileInput.files.length > 0) {
+                        try {
+                            // Converts your selected image to a portable string block
+                            finalMediaUrl = await readFileAsBase64(fileInput.files[0]);
+                        } catch (err) {
+                            alert("Failed to parse local image layout payload.");
+                            return;
+                        }
+                    } else {
+                        alert("Please pick a file to upload.");
+                        return;
+                    }
+                }
+
                 newEntry = {
                     id: document.getElementById('pub_id').value,
-                    type: document.getElementById('pub_type').value,
+                    type: type,
                     title: document.getElementById('pub_title').value,
                     desc: document.getElementById('pub_desc').value,
-                    url: document.getElementById('pub_url').value
+                    url: finalMediaUrl
                 };
             }
 
@@ -471,6 +542,8 @@
             saveDatabaseToDrive().then(() => {
                 alert(`Entry successfully committed directly to your personal Google Drive database!`);
                 event.target.reset();
+                // Ensure form state default triggers correctly
+                if(targetArray === 'Content') toggleContentSource('video');
                 renderAdminTables();
                 if (targetArray === 'Content') renderPublicGallery();
             }).catch(err => alert('Failed to sync internal state definitions with Google Cloud storage.'));
@@ -499,7 +572,6 @@
             let shopAddress = matchedCustomer ? matchedCustomer.address : "N/A";
             let contactPhone = matchedCustomer ? matchedCustomer.phone : "N/A";
 
-            // Visual Invoice Document Header
             doc.setFillColor(15, 34, 56);
             doc.rect(0, 0, 210, 40, 'F');
             doc.setTextColor(255, 255, 255);
