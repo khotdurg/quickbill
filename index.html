@@ -165,11 +165,10 @@
                             <h5>Asset Reference ID</h5>
                             <input type="text" placeholder="e.g. M101" required id="pub_id">
                             
-                            <h5>Showcase File / Resource Heading</h5>
+                            <h5>Showcase Asset Heading Type</h5>
                             <select id="pub_type" onchange="toggleContentSource(this.value)">
                                 <option value="photo">Upload Image File (From Computer)</option>
                                 <option value="video">Upload Video File (From Computer)</option>
-                                <option value="youtube">Link YouTube Video URL</option>
                             </select>
                             
                             <h5>Asset Interface Title</h5>
@@ -180,12 +179,7 @@
                             
                             <div id="fileUploadGroup">
                                 <h5>Choose Local File from Computer</h5>
-                                <input type="file" id="pub_file" accept="image/*,video/*">
-                            </div>
-
-                            <div id="youtubeUrlGroup" style="display: none;">
-                                <h5>YouTube Resource Web URL</h5>
-                                <input type="url" placeholder="https://www.youtube.com/watch?v=..." id="pub_url">
+                                <input type="file" id="pub_file" accept="image/*" required>
                             </div>
 
                             <button type="submit" style="margin-top: 0.5rem;">Publish to Landing Page</button>
@@ -221,29 +215,10 @@
             renderPublicGallery();
         });
 
-        // Configures form source inputs based on header select option type choosing logic
+        // Configures browser uploader filters dynamically (images vs videos)
         function toggleContentSource(type) {
-            const fileGroup = document.getElementById('fileUploadGroup');
-            const ytGroup = document.getElementById('youtubeUrlGroup');
             const fileInput = document.getElementById('pub_file');
-            const urlInput = document.getElementById('pub_url');
-
-            if(type === 'youtube') {
-                fileGroup.style.display = "none";
-                ytGroup.style.display = "block";
-                fileInput.required = false;
-                urlInput.required = true;
-                fileInput.value = ""; 
-            } else {
-                fileGroup.style.display = "block";
-                ytGroup.style.display = "none";
-                fileInput.required = true;
-                urlInput.required = false;
-                urlInput.value = "";
-                
-                // Fine-tune browser file filters dynamically
-                fileInput.accept = type === 'photo' ? "image/*" : "video/*";
-            }
+            fileInput.accept = type === 'photo' ? "image/*" : "video/*";
         }
 
         function toggleAdminView() {
@@ -460,16 +435,13 @@
             gallery.innerHTML = '';
 
             if (localDatabaseState.Content.length === 0) {
-                gallery.innerHTML = `<p>No showcase media assets uploaded yet. Log into the admin panel to populate items.</p>`;
+                gallery.innerHTML = `<p>No showcase media assets uploaded yet. Log into the admin panel to populate items from your computer.</p>`;
                 return;
             }
 
             localDatabaseState.Content.forEach(item => {
                 let mediaHtml = '';
-                if (item.type === 'youtube') {
-                    const embedUrl = item.url.replace("watch?v=", "embed/");
-                    mediaHtml = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
-                } else if (item.type === 'video') {
+                if (item.type === 'video') {
                     mediaHtml = `<video src="${item.url}" controls></video>`;
                 } else {
                     mediaHtml = `<img src="${item.url}" alt="QuickBill Showcase Asset">`;
@@ -517,23 +489,20 @@
                 };
             } else if (targetArray === 'Content') {
                 const type = document.getElementById('pub_type').value;
+                const fileInput = document.getElementById('pub_file');
                 let finalMediaUrl = "";
 
-                if(type === 'youtube') {
-                    finalMediaUrl = document.getElementById('pub_url').value;
-                } else {
-                    const fileInput = document.getElementById('pub_file');
-                    if(fileInput.files.length > 0) {
-                        try {
-                            finalMediaUrl = await readFileAsBase64(fileInput.files[0]);
-                        } catch (err) {
-                            alert("Failed to compile local system file into upload stream.");
-                            return;
-                        }
-                    } else {
-                        alert("Please select a file from your computer.");
+                if(fileInput.files.length > 0) {
+                    try {
+                        // Reads raw file storage bits into safe encoded text blocks
+                        finalMediaUrl = await readFileAsBase64(fileInput.files[0]);
+                    } catch (err) {
+                        alert("Failed to compile local system file into upload stream.");
                         return;
                     }
+                } else {
+                    alert("Please select an image or video file from your local computer.");
+                    return;
                 }
 
                 newEntry = {
