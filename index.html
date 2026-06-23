@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>QuickBill – Opportunities Software</title>
     
+    <!-- Google Identity Services client script -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
+    <!-- jsPDF and AutoTable for Client-Side PDF Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     
+    <!-- Configuration Variables -->
     <script src="config.js"></script>
 
     <style>
@@ -63,6 +66,7 @@
 
     <div class="container">
         
+        <!-- PUBLIC VIEW SECTION -->
         <section id="publicView" class="view-section active">
             <h2>Explore QuickBill Projects & Systems</h2>
             <p>Take a look at descriptions, snapshots, and walkthrough guides of our features.</p>
@@ -71,6 +75,7 @@
             </div>
         </section>
 
+        <!-- ADMIN INTERFACE VIEW SECTION -->
         <section id="adminView" class="view-section">
             <div id="authContainer" style="text-align: center; margin-top: 5rem;">
                 <h3>Administrator Access Authentication</h3>
@@ -85,6 +90,7 @@
                     <button class="tab-link" onclick="switchAdminTab('contentTab', this)">Showcase Content Manager</button>
                 </div>
 
+                <!-- SUB TAB: CUSTOMER MATRIX -->
                 <div id="customersTab" class="admin-tab-content" style="display: block;">
                     <div class="admin-grid">
                         <form id="customerForm" onsubmit="appendRow(event, 'Customers')">
@@ -114,6 +120,7 @@
                     </div>
                 </div>
 
+                <!-- SUB TAB: ANNUAL MAINTENANCE -->
                 <div id="maintenanceTab" class="admin-tab-content" style="display: none;">
                     <div class="admin-grid">
                         <form id="maintenanceForm" onsubmit="appendRow(event, 'Maintenance')">
@@ -139,6 +146,7 @@
                     </div>
                 </div>
 
+                <!-- SUB TAB: CONTENT MANAGER -->
                 <div id="contentTab" class="admin-tab-content" style="display: none;">
                     <div class="admin-grid">
                         <form id="contentForm" onsubmit="appendRow(event, 'Content')">
@@ -253,7 +261,14 @@
             const response = await fetch(`https://www.googleapis.com/drive/v3/files/${databaseFileId}?alt=media`, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             });
-            localDatabaseState = await response.json();
+            const data = await response.json();
+            
+            // Critical fix: Ensure empty arrays exist if file was blank or malformed
+            localDatabaseState = {
+                Content: Array.isArray(data.Content) ? data.Content : [],
+                Customers: Array.isArray(data.Customers) ? data.Customers : [],
+                Maintenance: Array.isArray(data.Maintenance) ? data.Maintenance : []
+            };
         }
 
         async function saveDatabaseToDrive() {
